@@ -55,7 +55,9 @@ def run():
         (H.m_value([(2, 1)])["cls"], "M4"), (H.p_level("1≤Q<10", "M4"), "P4"), (H.potential("P4", "E2"), "Ⅱ"),
         (H.GRADE["Ⅱ"], "三级"), (H.e_air("site", 30000, 300)["v"], "E2"), (H.d_class(1.2, 5e-5), "D2"),
         (H.TABLE_D5["D2"]["G3"], "E3"), (H.release_ratio(300, 500)["v"], 3), (H.release_ratio(50, 5000)["v"], None),
-        (H.max_pot(["Ⅱ", "Ⅳ+", "Ⅲ"]), "Ⅳ+"), (H.gas_leak(1, A5, 700000, 101325, 0.070906, 1.325, 293.15)["critical"], True),
+        (H.max_pot(["Ⅱ", "Ⅳ+", "Ⅲ"]), "Ⅳ+"), (H.potential(None, "E1"), "Ⅰ"),
+        (H.air_scope("二级")[0], "距建设项目边界不低于 5 km"), (H.air_scope("三级")[0], "距建设项目边界不低于 3 km"),
+        (H.air_scope("一级", "pipe")[0], "管道中心线两侧各不低于 200 m"), ("6200 m" in H.air_scope("一级", "site", 6200)[0], True), (H.gas_leak(1, A5, 700000, 101325, 0.070906, 1.325, 293.15)["critical"], True),
     ]
     for got, exp in checks:
         ok = got == exp

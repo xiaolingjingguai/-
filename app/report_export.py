@@ -7,13 +7,15 @@
   steps    [(计算项目, 公式及依据, 代入数值, 计算结果)]
   results  [结论句]
   warn     [提示]
+  tables   可选，结果表 [(表名, 表头, 行, 列宽cm)]，置于“计算结果”中、结论段落之前
 """
 STD = "《建设项目环境风险评价技术导则》（HJ 169-2018）"
 
 
-def make_report(title, basis, params, steps, results, warn):
+def make_report(title, basis, params, steps, results, warn, tables=None):
     return {"title": title, "basis": basis, "params": [[str(x) for x in p] for p in params],
-            "steps": [tuple(str(x) for x in s) for s in steps], "results": list(results), "warn": list(warn)}
+            "steps": [tuple(str(x) for x in s) for s in steps], "results": list(results), "warn": list(warn),
+            "tables": [(c, list(h), [[str(x) for x in r] for r in rows], list(w)) for c, h, rows, w in (tables or [])]}
 
 
 def to_text(rep):
@@ -23,7 +25,10 @@ def to_text(rep):
     t += "2. 计算过程\n"
     for i, s in enumerate(rep["steps"], 1):
         t += "（%d）%s：%s；代入 %s；得 %s\n" % (i, s[0], s[1], s[2], s[3])
-    t += "3. 计算结果\n" + "".join(r + "\n" for r in rep["results"])
+    t += "3. 计算结果\n"
+    for cap, head, rows, _ in rep.get("tables", []):
+        t += cap + "\n" + "\t".join(head) + "\n" + "".join("\t".join(r) + "\n" for r in rows)
+    t += "".join(r + "\n" for r in rep["results"])
     if rep["warn"]:
         t += "4. 提示\n" + "".join("（%d）%s\n" % (i, w) for i, w in enumerate(rep["warn"], 1))
     return t
@@ -134,6 +139,11 @@ def _module_docx(doc, rep, tno):
     _table(doc, "表%d　%s计算过程" % (tno + 1, name), ["序号", "计算项目", "公式及依据", "代入数值", "计算结果"],
            [[str(i), s[0], s[1], s[2], s[3]] for i, s in enumerate(rep["steps"], 1)], [1.3, 2.8, 4.9, 4.6, 2.4])
     _para(doc, "4. 计算结果", 12, True, indent=False, space_before=6)
+    tno += 2
+    for cap, head, rows, widths in rep.get("tables", []):
+        _table(doc, "表%d　%s" % (tno, cap), head, rows, widths)
+        tno += 1
+        _para(doc, "", 6, indent=False, line=1.0)
     for r in rep["results"]:
         _para(doc, r)
     if rep["warn"]:
@@ -143,7 +153,7 @@ def _module_docx(doc, rep, tno):
             for run in p.runs:
                 from docx.shared import RGBColor
                 run.font.color.rgb = RGBColor(0x8A, 0x4B, 0x00)
-    return tno + 2
+    return tno
 
 
 def to_docx(reports, path, doc_title="环境风险计算书"):
@@ -211,6 +221,8 @@ def to_xlsx(reports, path):
               [[i, p[0], p[1], p[2] or "—", p[3]] for i, p in enumerate(rep["params"], 1)])
         table("计算过程", ["序号", "计算项目", "公式及依据", "代入数值", "计算结果"],
               [[i, s[0], s[1], s[2], s[3]] for i, s in enumerate(rep["steps"], 1)])
+        for cap, head, rows, _ in rep.get("tables", []):
+            table(cap, head, rows)
         ws.append(["计算结果"])
         ws.cell(ws.max_row, 1).font = bold
         for r in rep["results"]:

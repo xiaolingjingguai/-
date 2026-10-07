@@ -595,7 +595,7 @@ class App:
 
     # -------------------------------------------------------------- 风险潜势
     def tab_risk(self):
-        pw, f = self.split("风险潜势判定")
+        pw, f = self.split("评价等级判定")
         self.risk_items = []  # [name, cas, qc, q, src]
         self.m_units = [(2, 1)]
         ttk.Label(f, text="一、危险物质数量与临界量比值 Q", style="H.TLabel").grid(row=0, column=0, sticky="w")
@@ -654,6 +654,8 @@ class App:
         self.E.add("Mb", "岩土层单层厚度 Mb", "m", 1.2)
         self.E.add("K", "渗透系数 K", "cm/s", "5e-5")
         self.E.combo("cont", "岩土层分布连续、稳定", [(True, "是"), (False, "否")])
+        self.E.head("四、评价范围", "4.5；大气毒性终点浓度预测到达距离超出范围时相应扩大")
+        self.E.add("reach", "大气毒性终点浓度最大预测到达距离（尚未预测填 0）", "m", 0)
 
         self.risk_res = ResultPane(pw, self, "risk")
         pw.add(self.risk_res, weight=2)
@@ -796,6 +798,7 @@ class App:
                 pass
         else:
             E.chk("perkm", nonneg=True)
+        E.chk("reach", nonneg=True, whi=1e5, hint="距离单位为 m。")
         if auto:
             E.chk("Mb", pos=True, whi=100, hint="岩土层单层厚度单位为 m。")
             E.chk("K", pos=True, whi=1, hint="渗透系数单位为 cm/s（如 1×10⁻⁶ 可写 1e-6）。")
@@ -843,9 +846,21 @@ class App:
         for k, e, pot, g in els:
             steps.append(("%s环境风险潜势" % k, "表2" if P else "附录C.1.1（Q＜1）", "%s，%s" % (P, e) if P else "Q＜1", "%s，评价工作等级：%s" % (pot, g)))
         steps.append(("建设项目环境风险潜势", "6.4 取各要素等级的相对高值；评价工作等级按表1", "、".join(x[2] for x in els), "%s，%s" % (overall, H.GRADE[overall])))
+        reach = E.get("reach")
+        scopes = {}
+        for k, e, pot, g in els:
+            if k == "大气":
+                txt, ref, note = H.air_scope(g, E.get("mode"), reach)
+                if note:
+                    warn.append(note)
+            else:
+                txt, ref = H.SW_SCOPE if k == "地表水" else H.GW_SCOPE
+            scopes[k] = (txt, ref)
+        warn.append("4.5.4：评价范围外存在需要特别关注的环境敏感目标时，评价范围需延伸至所关心的目标。")
+        steps += [("%s环境风险评价范围" % k, scopes[k][1], "评价工作等级：%s" % g, scopes[k][0]) for k, e, pot, g in els]
         summary = ["Q = %s（%s）　M = %s（%s）　P = %s" % (fmt(Q["v"]), Q["cls"], fmt(M["v"]), M["cls"], P or "—"),
                    "建设项目环境风险潜势：%s　评价工作等级：%s" % (overall, H.GRADE[overall])]
-        extra = "\n".join("　%s：敏感程度 %s，风险潜势 %s，评价工作等级 %s" % x for x in els)
+        extra = "\n".join("　%s：敏感程度 %s，风险潜势 %s，评价工作等级 %s；评价范围：%s" % (x + (scopes[x[0]][0],)) for x in els)
         params = [["%s%s 最大存在总量 q／临界量 Q" % (n, "（CAS %s）" % c if c else ""), "%s t／%s t" % (fmt(q), fmt(qc) if qc else "信息不足"), "", "临界量来源：HJ 169-2018 附录B %s" % src]
                   for n, c, qc, q, src in self.risk_items]
         params += [["工艺单元", "%s，%s 套" % (H.C1[o][0], fmt(c)), "", "表C.1"] for o, c in self.m_units]
@@ -855,10 +870,26 @@ class App:
             params.append(["管段周边 200 m 每千米人口", fmt(E.get("perkm")), "人/km", "现场调查，请注明"])
         params.append(["地表水", "%s；%s" % (E.vars["F"].get(), E.vars["S"].get()), "", "表D.3、表D.4"])
         params.append(["地下水", "%s；包气带 %s" % (E.vars["G"].get(), D), "", "表D.6、表D.7"])
-        sheet = RX.make_report("（一）环境风险潜势初判", " 6.1～6.4、附录C、附录D", params, steps,
-                           ["Q = %s（%s）；M = %s（%s）；P = %s" % (fmt(Q["v"]), Q["cls"], fmt(M["v"]), M["cls"], P or "—")]
-                           + ["%s：%s，环境风险潜势 %s，评价工作等级 %s" % x for x in els]
-                           + ["建设项目环境风险潜势综合等级为 %s，评价工作等级为%s（审批类别与评价等级请工程师复核）。" % (overall, H.GRADE[overall])], warn)
+        if reach:
+            params.append(["大气毒性终点浓度最大预测到达距离", fmt(reach), "m", "大气风险预测结果（附录G）"])
+        rows = [[k, e, pot, g, scopes[k][0]] for k, e, pot, g in els]
+        rows.append(["建设项目", "—", overall, H.GRADE[overall], "按各要素评价范围"])
+        tables = [("环境风险评价工作等级判定表", ["环境要素", "环境敏感程度", "环境风险潜势", "评价工作等级", "评价范围"], rows, [2.2, 2.8, 2.8, 2.8, 5.4])]
+        names = "、".join(x[0] for x in els)
+        if P:
+            para1 = ("根据 HJ 169-2018 附录C，本项目危险物质数量与临界量比值 Q = %s（%s），行业及生产工艺 M = %s（%s），"
+                     "按表C.2 危险物质及工艺系统危险性等级为 %s；根据附录D，%s环境敏感程度分别为 %s。按表2，%s环境风险潜势分别为 %s。"
+                     % (fmt(Q["v"]), Q["cls"], fmt(M["v"]), M["cls"], P, names, "、".join(x[1] for x in els), names, "、".join(x[2] for x in els)))
+        else:
+            para1 = ("根据 HJ 169-2018 附录C.1.1，本项目危险物质数量与临界量比值 Q = %s＜1，环境风险潜势直接判为Ⅰ；"
+                     "根据附录D，%s环境敏感程度分别为 %s。" % (fmt(Q["v"]), names, "、".join(x[1] for x in els)))
+        para2 = ("建设项目环境风险潜势综合等级取各要素等级的相对高值（6.4），为 %s。按表1，%s，建设项目环境风险评价工作等级为%s。"
+                 % (overall, "，".join("%s环境风险评价工作等级为%s" % (x[0], x[3]) for x in els), H.GRADE[overall]))
+        para3 = "评价范围（4.5）：%s。" % "；".join("%s%s" % (k, scopes[k][0]) for k, *_ in els)
+        para4 = "预测评价要求（4.4.4）：%s。" % "；".join(
+            "%s（%s）%s" % (k, g, H.PRED[k][g] if g in H.PRED[k] else "开展" + H.SIMPLE) for k, e, pot, g in els)
+        sheet = RX.make_report("（一）环境风险潜势初判与评价工作等级判定", " 4.3、4.4.4、4.5、6.1～6.4、附录C、附录D", params, steps,
+                               [para1, para2, para3, para4, "（审批类别与评价工作等级请工程师对照现行名录及地方规定复核。）"], warn, tables)
         self.risk_res.show(summary, warn, steps, sheet, extra)
 
     # -------------------------------------------------------------- 泄漏速率
@@ -1418,7 +1449,7 @@ def selftest(path):
         d = Document(fd)
         wb = load_workbook(fx)
         out.append("导出 Word：段落 %d，表格 %d；导出 Excel：工作表 %s" % (len(d.paragraphs), len(d.tables), "、".join(wb.sheetnames)))
-        bad += len(d.tables) != 10 or len(wb.sheetnames) != 6
+        bad += len(d.tables) != 11 or len(wb.sheetnames) != 6
     except Exception as ex:
         bad += 1
         out.append("导出失败：%r" % ex)

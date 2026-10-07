@@ -12,6 +12,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 import hj169calc as H
+import report_export as RX
 import selfcheck
 
 APP_NAME = "HJ 169 风险计算器"
@@ -139,9 +140,53 @@ class Form:
             else:
                 w.grid_remove()
 
+    # ---------------- 输入校验 ----------------
+    def begin_check(self):
+        self.errs, self.warns = [], []
+        for k, row in self.rows.items():
+            row[0].configure(style="TLabel")
+
+    def _mark(self, key, level):
+        lab = self.rows[key][0]
+        if level == "err" or lab.cget("style") != "Bad.TLabel":
+            lab.configure(style="Bad.TLabel" if level == "err" else "WarnLbl.TLabel")
+
+    def chk(self, key, pos=False, nonneg=False, lo=None, hi=None, lo_msg="", hi_msg="", wlo=None, whi=None, hint=""):
+        """校验一个字段：pos/nonneg/lo/hi 不满足为错误（阻止计算），wlo/whi 不满足为提醒。返回数值或 None。"""
+        name = self.labels[key]
+        try:
+            v = self.get(key)
+        except ValueError:
+            self.errs.append("“%s”未填写或不是数字。" % name)
+            self._mark(key, "err")
+            return None
+        if pos and v <= 0:
+            self.errs.append("“%s”必须大于 0（当前 %s）。" % (name, fmt(v)))
+        elif nonneg and v < 0:
+            self.errs.append("“%s”不能为负值（当前 %s）。" % (name, fmt(v)))
+        elif lo is not None and v <= lo:
+            self.errs.append(lo_msg or "“%s”应大于 %s（当前 %s）。" % (name, fmt(lo), fmt(v)))
+        elif hi is not None and v > hi:
+            self.errs.append(hi_msg or "“%s”应不大于 %s（当前 %s）。" % (name, fmt(hi), fmt(v)))
+        else:
+            if (wlo is not None and v < wlo) or (whi is not None and v > whi):
+                self.warns.append("“%s”= %s 超出常见范围，%s" % (name, fmt(v), hint or "请核对数值与单位。"))
+                self._mark(key, "warn")
+            return v
+        self._mark(key, "err")
+        return None
+
+    def temp(self, key):
+        return self.chk(key, pos=True, wlo=150, whi=1500, hint="温度单位为 K（是否误填为 ℃？摄氏度需加 273.15）。")
+
+    def error(self, msg, *keys):
+        self.errs.append(msg)
+        for k in keys:
+            self._mark(k, "err")
+
 
 class ResultPane(ttk.Frame):
-    """结果区：摘要 + 提示 + 计算过程，附“复制计算书”“导出”按钮。"""
+    """结果区：摘要 + 提示 + 计算过程，附复制、导出 Word／Excel 按钮。"""
 
     def __init__(self, master, app, key):
         super().__init__(master, padding=6)
@@ -149,8 +194,9 @@ class ResultPane(ttk.Frame):
         bar = ttk.Frame(self)
         bar.pack(fill="x")
         ttk.Label(bar, text="计算结果", style="H.TLabel").pack(side="left")
-        ttk.Button(bar, text="导出计算书…", command=self.export).pack(side="right")
-        ttk.Button(bar, text="复制计算书", command=self.copy).pack(side="right", padx=6)
+        ttk.Button(bar, text="导出 Excel", command=lambda: self.app.export([self.key], "xlsx")).pack(side="right")
+        ttk.Button(bar, text="导出 Word", command=lambda: self.app.export([self.key], "docx")).pack(side="right", padx=6)
+        ttk.Button(bar, text="复制文字", command=self.copy).pack(side="right")
         self.txt = tk.Text(self, wrap="word", font=("Microsoft YaHei UI", 10), relief="flat", padx=10, pady=8,
                            background="#f6f8f7", borderwidth=1, highlightthickness=1, highlightbackground="#d3dcd9")
         sb = ttk.Scrollbar(self, command=self.txt.yview)
@@ -160,12 +206,13 @@ class ResultPane(ttk.Frame):
         self.txt.tag_configure("big", font=("Microsoft YaHei UI", 13, "bold"), foreground="#0d6b66", spacing3=4)
         self.txt.tag_configure("h", font=("Microsoft YaHei UI", 10, "bold"), spacing1=8, spacing3=2)
         self.txt.tag_configure("warn", foreground="#8a4b00", background="#fff3dc", lmargin1=6, lmargin2=6, spacing1=2, spacing3=2)
+        self.txt.tag_configure("err", foreground="#ffffff", background="#b3261e", lmargin1=6, lmargin2=6, spacing1=3, spacing3=3,
+                               font=("Microsoft YaHei UI", 10, "bold"))
         self.txt.tag_configure("f", foreground="#5a6a70")
         self.txt.tag_configure("mono", font=("Consolas", 10))
         self.txt.tag_configure("res", font=("Consolas", 10, "bold"))
-        self.sheet = ""
 
-    def show(self, summary, warn, steps, sheet, extra=""):
+    def show(self, summary, warn, steps, rep, extra=""):
         t = self.txt
         t.configure(state="normal")
         t.delete("1.0", "end")
@@ -182,35 +229,26 @@ class ResultPane(ttk.Frame):
             t.insert("end", "    代入：" + s + "\n", "mono")
             t.insert("end", "    结果：" + r + "\n", "res")
         t.configure(state="disabled")
-        self.sheet = sheet
-        self.app.sheets[self.key] = sheet
+        self.app.reports[self.key] = rep
 
-    def error(self, msg):
+    def error(self, msgs, warns=()):
+        """输入有误：显示错误清单，不出计算结果。"""
+        if isinstance(msgs, str):
+            msgs = [msgs]
         t = self.txt
         t.configure(state="normal")
         t.delete("1.0", "end")
-        t.insert("end", msg + "\n", "warn")
+        t.insert("end", "输入有误，已停止计算。请按以下提示修改（左侧标红的参数）：\n", "h")
+        for m in msgs:
+            t.insert("end", "✖ " + m + "\n", "err")
+        for w in warns:
+            t.insert("end", "⚠ " + w + "\n", "warn")
         t.configure(state="disabled")
-        self.app.sheets.pop(self.key, None)
+        self.app.reports.pop(self.key, None)
 
     def copy(self):
-        self.app.clip(self.sheet)
-
-    def export(self):
-        self.app.export_text(self.sheet, self.key)
-
-
-def sheet_text(title, basis, params, steps, results, warn):
-    t = "%s\n依据：%s%s。\n1. 参数取值\n" % (title, STD, basis)
-    for i, p in enumerate(params, 1):
-        t += "（%d）%s：%s%s（%s）\n" % (i, p[0], p[1], " " + p[2] if p[2] else "", p[3])
-    t += "2. 计算过程\n"
-    for i, s in enumerate(steps, 1):
-        t += "（%d）%s：%s；代入 %s；得 %s\n" % (i, s[0], s[1], s[2], s[3])
-    t += "3. 计算结果\n" + "".join(r + "\n" for r in results)
-    if warn:
-        t += "4. 提示\n" + "".join("（%d）%s\n" % (i, w) for i, w in enumerate(warn, 1))
-    return t
+        rep = self.app.reports.get(self.key)
+        self.app.clip(RX.to_text(rep) if rep else "")
 
 
 # ====================================================================== 主程序
@@ -219,9 +257,10 @@ class App:
         self.root = root
         self.db = load_db()
         self.subs = self.db["subs"]
-        self.sheets = {}
+        self.reports = {}
         self.current = None
         self.last_leak = None
+        self.last_leak_type = None
         self.last_evap = None
         root.title("%s  %s" % (APP_NAME, APP_VER))
         root.geometry("1320x860")
@@ -232,16 +271,26 @@ class App:
         top.pack(fill="x")
         ttk.Label(top, text=APP_NAME, style="Title.TLabel").pack(side="left")
         ttk.Label(top, text="  HJ 169-2018 附录C／D／F／G", style="Ref.TLabel").pack(side="left")
-        ttk.Button(top, text="导出全部计算书…", command=self.export_all).pack(side="right")
-        ttk.Button(top, text="复制全部计算书", command=lambda: self.clip(self.all_sheets())).pack(side="right", padx=6)
+        ttk.Button(top, text="全部导出 Excel", command=lambda: self.export(None, "xlsx")).pack(side="right")
+        ttk.Button(top, text="全部导出 Word", command=lambda: self.export(None, "docx")).pack(side="right", padx=6)
+        ttk.Button(top, text="复制全部文字", command=lambda: self.clip(self.all_text())).pack(side="right")
 
-        cur = ttk.Frame(root, padding=(12, 0, 12, 6))
+        cur = ttk.Frame(root, padding=(12, 0, 12, 4))
         cur.pack(fill="x")
-        ttk.Label(cur, text="当前物质：").pack(side="left")
-        self.cur_lbl = ttk.Label(cur, text="未选择（在“物质库”页搜索并选择）", style="Cur.TLabel")
-        self.cur_lbl.pack(side="left")
-        ttk.Label(cur, text="    本程序不做扩散浓度预测；大气风险预测须采用 SLAB、AFTOX 等推荐模型及经认可的软件。",
-                  style="Warn.TLabel").pack(side="left")
+        ttk.Label(cur, text="当前物质（输入名称或 CAS 检索，下拉点选）：").pack(side="left")
+        self.pick = ttk.Combobox(cur, width=46)
+        self.pick.pack(side="left")
+        self.pick_items = []
+        self.pick.bind("<KeyRelease>", self.pick_filter)
+        self.pick.bind("<<ComboboxSelected>>", lambda e: self.pick_apply())
+        self.pick.bind("<Return>", lambda e: self.pick_apply())
+        ttk.Button(cur, text="带入参数", command=self.pick_apply).pack(side="left", padx=4)
+        ttk.Button(cur, text="加入 Q 计算", command=lambda: self.add_q_sub(self.current)).pack(side="left")
+        self.cur_lbl = ttk.Label(cur, text="", style="Cur.TLabel", wraplength=560, justify="left")
+        self.cur_lbl.pack(side="left", padx=8)
+        ttk.Label(root, text="本程序不做扩散浓度预测；大气风险预测须采用 SLAB、AFTOX 等推荐模型及经认可的软件。",
+                  style="Warn.TLabel", padding=(12, 0, 12, 4)).pack(fill="x")
+        self.pick_filter()
 
         self.nb = ttk.Notebook(root)
         self.nb.pack(fill="both", expand=True, padx=12, pady=(0, 10))
@@ -272,6 +321,8 @@ class App:
         st.configure("SrcUser.TLabel", font=("Microsoft YaHei UI", 8), foreground="#8a4b00")
         st.configure("Cur.TLabel", font=("Microsoft YaHei UI", 10, "bold"), foreground="#0d6b66")
         st.configure("Warn.TLabel", foreground="#8a4b00")
+        st.configure("Bad.TLabel", foreground="#b3261e", font=("Microsoft YaHei UI", 9, "bold"))
+        st.configure("WarnLbl.TLabel", foreground="#8a4b00", font=("Microsoft YaHei UI", 9, "bold"))
         st.configure("Treeview", rowheight=24)
         st.configure("TNotebook.Tab", padding=(14, 5))
 
@@ -417,15 +468,62 @@ class App:
 
     def use_current(self):
         s = self.selected_sub()
-        if not s:
+        if s:
+            self.set_current(s)
+
+    @staticmethod
+    def sub_label(s):
+        cas = "无CAS号" if s["cas"].startswith("无CAS") else s["cas"]
+        return "%s｜%s" % (s["cn"] or s["en"], cas)
+
+    def pick_filter(self, event=None):
+        if event is not None and event.keysym in ("Up", "Down", "Return", "Escape", "Tab"):
             return
+        q = self.pick.get().strip().lower()
+        if "｜" in q:
+            q = q.split("｜")[0]
+        items = []
+        for s in self.subs:
+            if not q or q in s["cas"].lower() or q in (s["cn"] or "").lower() or q in (s["en"] or "").lower():
+                items.append(s)
+                if len(items) >= 80:
+                    break
+        self.pick_items = items
+        self.pick["values"] = [self.sub_label(s) for s in items]
+
+    def pick_apply(self):
+        text = self.pick.get().strip()
+        if not text:
+            return
+        s = next((x for x in self.subs if self.sub_label(x) == text), None)
+        if s is None:
+            self.pick_filter()
+            if not self.pick_items:
+                self.cur_lbl.configure(text="物质库中未找到“%s”，信息不足，请手工填写参数。" % text, style="Warn.TLabel")
+                return
+            q = text.lower()
+            s = next((x for x in self.pick_items if q in (x["cas"].lower(), (x["cn"] or "").lower(), (x["en"] or "").lower())), self.pick_items[0])
+        self.set_current(s)
+
+    def set_current(self, s):
         self.current = s
-        cas = "" if s["cas"].startswith("无CAS") else "（CAS %s）" % s["cas"]
-        self.cur_lbl.configure(text="%s%s" % (s["cn"] or s["en"], cas))
+        self.pick.set(self.sub_label(s))
         filled = self.fill_from(s)
         self.recalc_all()
-        messagebox.showinfo(APP_NAME, "已设为当前物质：%s%s\n\n已带入参数：%s\n\n库中缺少的参数保持原值，请手工核对填写。"
-                            % (s["cn"] or s["en"], cas, "、".join(filled) if filled else "无（库中缺少可带入的理化参数）"))
+        self.cur_lbl.configure(style="Cur.TLabel", text="已带入：%s。库中缺少的参数保持原值，请核对。" % ("、".join(filled) if filled else "无（库中缺少可带入的理化参数）"))
+
+    def add_q_sub(self, s):
+        if not s:
+            messagebox.showinfo(APP_NAME, "请先在“当前物质”中选择一种物质。")
+            return
+        cas = "" if s["cas"].startswith("无CAS") else s["cas"]
+        opts = [(b[0], b[1], "表B.1") for b in s["b1"]]
+        if not opts:
+            opts = [(s["cn"] or s["en"], None, "表B.1 未列入，请填写临界量并注明依据（可对照表B.2）")]
+        name, qc, src = self.choose(opts) if len(opts) > 1 else opts[0]
+        if name is None:
+            return
+        self.edit_q(new=True, preset=[name, cas, qc, 0.0, src])
 
     def fill_from(self, s):
         p, nm, done = s["p"], s["cn"] or s["en"] or s["cas"], []
@@ -603,16 +701,8 @@ class App:
 
     def add_q_from_db(self):
         s = self.selected_sub()
-        if not s:
-            return
-        cas = "" if s["cas"].startswith("无CAS") else s["cas"]
-        opts = [(b[0], b[1], "表B.1") for b in s["b1"]]
-        if not opts:
-            opts = [(s["cn"] or s["en"], None, "表B.1 未列入，请填写临界量并注明依据（可对照表B.2）")]
-        name, qc, src = self.choose(opts) if len(opts) > 1 else opts[0]
-        if name is None:
-            return
-        self.edit_q(new=True, preset=[name, cas, qc, 0.0, src])
+        if s:
+            self.add_q_sub(s)
 
     def choose(self, opts):
         d = tk.Toplevel(self.root)
@@ -695,17 +785,42 @@ class App:
         auto = E.get("D") == "auto"
         for k in ("Mb", "K", "cont"):
             E.show(k, auto)
-        try:
-            items = [{"name": n, "cas": c, "qc": qc, "q": q} for n, c, qc, q, _ in self.risk_items]
-            Q = H.q_value(items)
-            M = H.m_value(self.m_units)
-            P = H.p_level(Q["cls"], M["cls"])
-            air = H.e_air(E.get("mode"), E.get("pop5") if site else 0, E.get("pop05") if site else 0,
-                          E.get("special") if site else False, 0 if site else E.get("perkm"))
-            D = H.d_class(E.get("Mb"), E.get("K"), E.get("cont")) if auto else E.get("D")
-        except (ValueError, ZeroDivisionError) as ex:
-            self.risk_res.error("参数不完整或格式有误：%s" % ex)
+        E.begin_check()
+        if site:
+            E.chk("pop5", nonneg=True)
+            E.chk("pop05", nonneg=True)
+            try:
+                if E.get("pop05") > E.get("pop5"):
+                    E.warns.append("500 m 范围人口大于 5 km 范围人口，请核对。")
+            except ValueError:
+                pass
+        else:
+            E.chk("perkm", nonneg=True)
+        if auto:
+            E.chk("Mb", pos=True, whi=100, hint="岩土层单层厚度单位为 m。")
+            E.chk("K", pos=True, whi=1, hint="渗透系数单位为 cm/s（如 1×10⁻⁶ 可写 1e-6）。")
+        for n, c, qc, q, _ in self.risk_items:
+            if q is None or q < 0:
+                E.errs.append("“%s”的最大存在总量不能为负值或空值（双击该行修改）。" % n)
+            if qc is not None and qc <= 0:
+                E.errs.append("“%s”的临界量必须大于 0。" % n)
+        for o, c in self.m_units:
+            if c <= 0:
+                E.errs.append("工艺单元“%s”的套数必须大于 0。" % H.C1[o][0][:16])
+        if not self.risk_items:
+            E.errs.append("尚未添加危险物质，无法计算 Q。")
+        if not self.m_units:
+            E.warns.append("尚未添加工艺单元，M 按 0 计。")
+        if E.errs:
+            self.risk_res.error(E.errs, E.warns)
             return
+        items = [{"name": n, "cas": c, "qc": qc, "q": q} for n, c, qc, q, _ in self.risk_items]
+        Q = H.q_value(items)
+        M = H.m_value(self.m_units)
+        P = H.p_level(Q["cls"], M["cls"])
+        air = H.e_air(E.get("mode"), E.get("pop5") if site else 0, E.get("pop05") if site else 0,
+                      E.get("special") if site else False, 0 if site else E.get("perkm"))
+        D = H.d_class(E.get("Mb"), E.get("K"), E.get("cont")) if auto else E.get("D")
         self.draw_q()
         F, S, G = E.get("F"), E.get("S"), E.get("G")
         eW, eG = H.TABLE_D2[S][F], H.TABLE_D5[D][G]
@@ -714,7 +829,7 @@ class App:
             pot = H.potential(P, e)
             els.append((k, e, pot, H.GRADE[pot]))
         overall = H.max_pot([x[2] for x in els])
-        warn = Q["warn"] + M["warn"] + air["warn"]
+        warn = E.warns + Q["warn"] + M["warn"] + air["warn"]
         if Q["cls"] == "Q<1":
             warn.append("Q＜1，按附录C.1.1 环境风险潜势直接判为Ⅰ，开展简单分析（附录A）。")
         steps = Q["steps"] + ([] if Q["cls"] == "Q<1" else M["steps"])
@@ -740,7 +855,7 @@ class App:
             params.append(["管段周边 200 m 每千米人口", fmt(E.get("perkm")), "人/km", "现场调查，请注明"])
         params.append(["地表水", "%s；%s" % (E.vars["F"].get(), E.vars["S"].get()), "", "表D.3、表D.4"])
         params.append(["地下水", "%s；包气带 %s" % (E.vars["G"].get(), D), "", "表D.6、表D.7"])
-        sheet = sheet_text("（一）环境风险潜势初判", " 6.1～6.4、附录C、附录D", params, steps,
+        sheet = RX.make_report("（一）环境风险潜势初判", " 6.1～6.4、附录C、附录D", params, steps,
                            ["Q = %s（%s）；M = %s（%s）；P = %s" % (fmt(Q["v"]), Q["cls"], fmt(M["v"]), M["cls"], P or "—")]
                            + ["%s：%s，环境风险潜势 %s，评价工作等级 %s" % x for x in els]
                            + ["建设项目环境风险潜势综合等级为 %s，评价工作等级为%s（审批类别与评价等级请工程师复核）。" % (overall, H.GRADE[overall])], warn)
@@ -749,7 +864,7 @@ class App:
     # -------------------------------------------------------------- 泄漏速率
     def tab_leak(self):
         pw, f = self.split("泄漏速率")
-        L = self.leak = Form(f, self.calc_leak)
+        L = self.leak = Form(f, lambda: (self.calc_leak(), self.calc_evap(), self.calc_model()))
         L.head("泄漏形式与裂口", "附录F.1；示例：液氨储罐，圆形裂口 10 mm")
         L.combo("type", "泄漏形式", [("liq", "液体泄漏 式(F.1)"), ("gas", "气体泄漏 式(F.2)～(F.5)"), ("two", "两相流泄漏 式(F.6)～(F.8)")])
         L.combo("shape", "裂口形状", [("circle", "圆形（多边形）"), ("triangle", "三角形"), ("rect", "长方形")])
@@ -763,7 +878,7 @@ class App:
         L.add("rho", "液体密度 ρ", "kg/m³", 609.4, "氨 20 ℃ 饱和液体密度（Perry 手册 8 版表2-32）")
         L.add("h", "裂口之上液位高度 h", "m", 2)
         L.add("TT", "储存温度（校核急骤蒸发，选填）", "K", 293.15)
-        L.add("Tb", "常压沸点（校核用）", "K", 239.85, "氨常压沸点 −33.3 ℃（CRC 手册 95 版）")
+        L.add("Tb", "物质常压沸点 T_b（相态校核）", "K", 239.85, "氨常压沸点 −33.3 ℃（CRC 手册 95 版）")
         L.add("M", "摩尔质量 M", "kg/mol", 0.0170305, "氨分子量 17.0305 g/mol（PubChem）")
         L.add("k", "绝热指数 γ", "", 1.31, "氨，CRC 298.15 K 理想气体 Cp=35.1 J/(mol·K) 计算")
         L.add("TG", "气体温度 T_G", "K", 293.15)
@@ -781,12 +896,16 @@ class App:
     def calc_leak(self):
         L = self.leak
         t = L.get("type")
-        vis = {"liq": {"re", "rho", "h", "TT", "Tb", "P0"}, "gas": {"M", "k", "TG", "P0"},
-               "two": {"pc", "cp", "TLG", "TC", "H", "rho1", "rho2"}}
+        vis = {"liq": {"re", "rho", "h", "TT", "Tb", "P0"}, "gas": {"M", "k", "TG", "P0", "Tb"},
+               "two": {"pc", "cp", "TLG", "TC", "H", "rho1", "rho2", "Tb"}}
         for k in ("re", "rho", "h", "TT", "Tb", "P0", "M", "k", "TG", "pc", "cp", "TLG", "TC", "H", "rho1", "rho2"):
             L.show(k, k in vis[t])
         manual = L.get("cdmode") == "manual"
         L.show("cd", manual)
+        if not self.check_leak(t, manual):
+            self.last_leak = self.last_leak_type = None
+            self.leak_res.error(L.errs, L.warns)
+            return
         try:
             sh = L.get("shape")
             if manual:
@@ -807,12 +926,6 @@ class App:
                 title, basis, label = "（二）液体泄漏速率计算", " 附录F.1.1 式(F.1)、表F.1", "Q_L"
                 params = pA + [["环境压力 P₀", fmt(L.get("P0")), "Pa", L.source("P0")], ["液体密度 ρ", fmt(L.get("rho")), "kg/m³", L.source("rho")],
                                ["裂口之上液位高度 h", fmt(L.get("h")), "m", L.source("h", "设计资料")], ["重力加速度 g", "9.81", "m/s²", "式(F.1)注"]]
-                try:
-                    TT, Tb = L.get("TT"), L.get("Tb")
-                    if TT > Tb:
-                        r["warn"].append("储存温度 %s K 高于常压沸点 %s K，泄漏时喷口内可能发生急骤蒸发，式(F.1) 的限制条件可能不满足，宜同时按两相流式(F.6)～(F.8) 校核，取对后果更不利者并在报告中说明。" % (fmt(TT), fmt(Tb)))
-                except ValueError:
-                    pass
             elif t == "gas":
                 r = H.gas_leak(Cd, A, P, L.get("P0"), L.get("M"), L.get("k"), L.get("TG"))
                 title, basis, label = "（二）气体泄漏速率计算", " 附录F.1.2 式(F.2)～(F.5)", "Q_G"
@@ -832,22 +945,77 @@ class App:
         except (ValueError, ZeroDivisionError) as ex:
             self.leak_res.error("参数不完整或格式有误：%s" % ex)
             return
+        r["warn"] = L.warns + r["warn"]
         mass = r["v"] * tt
         r["steps"].append(("泄漏量", "泄漏速率 × 泄漏时间（8.2.2.1）", "%s kg/s × %s s" % (fmt(r["v"]), fmt(tt)), "%s kg" % fmt(mass)))
         params.append(["泄漏时间 t", fmt(tt), "s", "8.2.2.1（有紧急隔离系统 10 min，无 30 min）"])
-        self.last_leak = r["v"]
+        self.last_leak, self.last_leak_type = r["v"], t
         summary = ["泄漏速率 %s = %s kg/s　泄漏量 = %s kg" % (label, fmt(r["v"]), fmt(mass))]
         if t == "gas":
             summary.append("流态：%s" % ("临界流" if r["critical"] else "次临界流"))
         if t == "two":
             summary.append("蒸发比例 F_V = %s" % fmt(r["Fv"]))
-        sheet = sheet_text(title, basis, params, r["steps"], ["泄漏速率 %s = %s kg/s，泄漏时间 %s s 内泄漏量 %s kg。" % (label, fmt(r["v"]), fmt(tt), fmt(mass))], r["warn"])
+        sheet = RX.make_report(title, basis, params, r["steps"], ["泄漏速率 %s = %s kg/s，泄漏时间 %s s 内泄漏量 %s kg。" % (label, fmt(r["v"]), fmt(tt), fmt(mass))], r["warn"])
         self.leak_res.show(summary, r["warn"], r["steps"], sheet)
+
+    def check_leak(self, t, manual):
+        """泄漏页输入校验：负值、单位异常与相态—模型匹配。返回是否可计算。"""
+        L = self.leak
+        L.begin_check()
+        L.chk("d", pos=True, wlo=0.5, whi=1000, hint="裂口当量直径单位为 mm。")
+        P = L.chk("P", pos=True, wlo=1e4, whi=1e8, hint="容器压力为绝对压力，单位 Pa（是否误填 MPa、kPa 或表压？）。")
+        L.chk("t", pos=True, whi=7200, hint="8.2.2.1：设紧急隔离系统一般取 600 s，未设取 1800 s。")
+        if manual:
+            L.chk("cd", lo=0, hi=1, lo_msg="泄漏系数 C_d 必须大于 0。", hi_msg="泄漏系数 C_d 不应大于 1。")
+        Tb = L.temp("Tb")
+        P0 = None
+        if t in ("liq", "gas"):
+            P0 = L.chk("P0", pos=True, wlo=5e4, whi=1.2e5, hint="环境压力一般取 101325 Pa。")
+        nm = (self.current["cn"] or self.current["en"]) if self.current else "该物质"
+        if t == "liq":
+            L.chk("rho", pos=True, wlo=300, whi=3000, hint="液体密度单位为 kg/m³（是否误填 g/cm³？水约 1000 kg/m³）。")
+            L.chk("h", nonneg=True, whi=50, hint="液位高度单位为 m。")
+            TT = L.temp("TT")
+            if None not in (TT, Tb, P, P0):
+                if TT > Tb and P <= P0 * 1.05:
+                    L.error("储存温度 %s K 高于%s常压沸点 %s K，而容器为常压，物质在此工况下为气态，不能按液体泄漏式(F.1)计算。"
+                            "请改选“气体泄漏”，或核对储存温度、压力。" % (fmt(TT), nm, fmt(Tb)), "type", "TT", "P")
+                elif TT > Tb:
+                    L.warns.append("储存温度 %s K 高于常压沸点 %s K（加压液化），泄漏时喷口内可能急骤蒸发，式(F.1) 的限制条件可能不满足，"
+                                   "宜同时按两相流式(F.6)～(F.8) 校核，取对后果更不利者并在报告中说明。" % (fmt(TT), fmt(Tb)))
+        elif t == "gas":
+            L.chk("M", pos=True, wlo=0.002, whi=1.0, hint="摩尔质量单位为 kg/mol（是否误填 g/mol？氨为 0.017 kg/mol）。")
+            L.chk("k", lo=1.0, lo_msg="绝热指数 γ 必须大于 1。", whi=1.67, hint="理想气体 γ 一般为 1.0～1.67。")
+            TG = L.temp("TG")
+            if None not in (TG, Tb) and TG < Tb:
+                L.error("气体温度 %s K 低于%s常压沸点 %s K，物质在此工况下为液态，不能按气体泄漏式(F.4)计算。"
+                        "请改选“液体泄漏”或“两相流泄漏”。" % (fmt(TG), nm, fmt(Tb)), "type", "TG")
+            pv = self.current["p"].get("pv20") if self.current else None
+            if pv and TG is not None and P is not None and abs(TG - 293.15) <= 5 and P > pv[0] * 1000 * 1.05:
+                L.error("容器压力 %s Pa 高于%s 20 ℃ 饱和蒸气压 %s kPa，容器内物质已液化，液相泄漏不能按气体泄漏计算（气相空间泄漏时压力不会超过饱和蒸气压）。"
+                        "请改选“液体／两相流泄漏”，或核对压力。" % (fmt(P), nm, fmt(pv[0])), "type", "P")
+            if None not in (P, P0) and P <= P0:
+                L.error("容器压力不高于环境压力，不发生气体泄漏。", "P")
+        else:
+            cp = L.chk("cp", pos=True, wlo=500, whi=10000, hint="比热容单位为 J/(kg·K)（是否误填 kJ/(kg·K)？）。")
+            Hh = L.chk("H", pos=True, wlo=5e4, whi=5e6, hint="汽化热单位为 J/kg（是否误填 kJ/kg 或 J/mol？）。")
+            L.chk("rho1", pos=True, whi=50, hint="蒸汽密度一般小于 50 kg/m³。")
+            L.chk("rho2", pos=True, wlo=300, whi=3000, hint="液体密度单位为 kg/m³。")
+            TLG, TC = L.temp("TLG"), L.temp("TC")
+            if None not in (TLG, Tb) and TLG <= Tb:
+                L.error("两相混合物温度 %s K 不高于%s常压沸点 %s K，泄漏时不会闪蒸形成两相流，请改选“液体泄漏”。" % (fmt(TLG), nm, fmt(Tb)), "type", "TLG")
+            elif None not in (cp, Hh, TLG, TC):
+                Fv = cp * (TLG - TC) / Hh
+                if Fv > 1:
+                    L.error("F_V = %s ＞ 1，液体将全部蒸发成气体，按附录F.1.3 应改选“气体泄漏”。" % fmt(Fv), "type")
+                elif Fv <= 0:
+                    L.error("F_V = %s ≤ 0，不发生闪蒸，按附录F.1.3 应改选“液体泄漏”。" % fmt(Fv), "type", "TC")
+        return not L.errs
 
     # -------------------------------------------------------------- 液池蒸发
     def tab_evap(self):
         pw, f = self.split("液池蒸发")
-        E = self.evap = Form(f, self.calc_evap)
+        E = self.evap = Form(f, lambda: (self.calc_evap(), self.calc_model()))
         E.head("闪蒸", "F.1.4.1 式(F.9)(F.10)；示例：液氨泄漏，水泥地面围堰 100 m²")
         E.combo("qlmode", "物质泄漏速率 Q_L 来源", [("leak", "取“泄漏速率”页计算结果"), ("manual", "手工输入")])
         E.add("QL", "物质泄漏速率 Q_L（手工）", "kg/s", 1.559)
@@ -877,10 +1045,12 @@ class App:
         E = self.evap
         E.show("QL", E.get("qlmode") == "manual")
         E.show("r", E.get("rmode") == "manual")
+        if not self.check_evap():
+            self.last_evap = None
+            self.evap_res.error(E.errs, E.warns)
+            return
         try:
             if E.get("qlmode") == "leak":
-                if self.last_leak is None:
-                    raise ValueError("“泄漏速率”页尚无有效结果")
                 QL, qlsrc = self.last_leak, "“泄漏速率”页计算结果"
             else:
                 QL, qlsrc = E.get("QL"), E.source("QL")
@@ -897,6 +1067,7 @@ class App:
             self.evap_res.error("参数不完整或格式有误：%s" % ex)
             return
         self.last_evap = (res, r)
+        res["warn"] = E.warns + res["warn"]
         if o["t2"] < 900 or o["t3"] < 900:
             res["warn"].append("8.2.2.1：蒸发时间一般可按 15～30 min 计，请核对 t₂、t₃ 取值依据。")
         res["warn"].append("式(F.11) 中热量蒸发速率随时间 t 递减，本程序按导则式(F.13) 以 t = t₂ 时的 Q₂ 乘以 t₂ 计算，与导则写法一致。")
@@ -908,10 +1079,43 @@ class App:
                   ["时间 t₁／t₂／t₃", "%s／%s／%s" % (fmt(o["t1"]), fmt(o["t2"]), fmt(o["t3"])), "s", "8.2.2.1"]]
         summary = ["Q₁ = %s　Q₂ = %s　Q₃ = %s kg/s" % (fmt(res["Q1"]), fmt(res["Q2"]), fmt(res["Q3"])),
                    "闪蒸比例 F_v = %s　蒸发总量 W_p = %s kg" % (fmt(res["Fv"]), fmt(res["v"]))]
-        sheet = sheet_text("（三）泄漏液体蒸发量计算", " 附录F.1.4 式(F.9)～(F.13)、表F.2、表F.3", params, res["steps"],
+        sheet = RX.make_report("（三）泄漏液体蒸发量计算", " 附录F.1.4 式(F.9)～(F.13)、表F.2、表F.3", params, res["steps"],
                            ["闪蒸蒸发速率 Q₁ = %s kg/s，热量蒸发速率 Q₂ = %s kg/s，质量蒸发速率 Q₃ = %s kg/s；液体蒸发总量 W_p = %s kg。"
                             % (fmt(res["Q1"]), fmt(res["Q2"]), fmt(res["Q3"]), fmt(res["v"]))], res["warn"])
         self.evap_res.show(summary, res["warn"], res["steps"], sheet)
+
+    def check_evap(self):
+        """液池蒸发页输入校验：Q_L 来源须为液体或两相流泄漏，蒸气压不超过环境压力，单位范围。"""
+        E = self.evap
+        E.begin_check()
+        if E.get("qlmode") == "leak":
+            if self.last_leak is None:
+                E.error("“泄漏速率”页尚无有效结果（该页输入有误或未计算），请先修正该页，或将 Q_L 来源改为手工输入。", "qlmode")
+            elif self.last_leak_type == "gas":
+                E.error("“泄漏速率”页当前为气体泄漏。气态物质泄漏后直接扩散，不形成液池，不能按附录F.1.4 液池蒸发计算。"
+                        "请将泄漏速率页改选“液体泄漏”或“两相流泄漏”，或将 Q_L 改为手工输入。", "qlmode")
+            elif self.last_leak_type == "two":
+                E.warns.append("Q_L 取自两相流泄漏速率 Q_LG（气液总量）。其中闪蒸气相比例 F_V 直接进入大气，形成液池的液相量为 (1−F_V)·Q_LG，请按事故情形复核 Q_L 取值。")
+        else:
+            E.chk("QL", pos=True, whi=1000, hint="泄漏速率单位为 kg/s（是否误填 kg/h 或 t？）。")
+        TT, Tb, T0 = E.temp("TT"), E.temp("Tb"), E.temp("T0")
+        E.chk("Cp", pos=True, wlo=500, whi=10000, hint="比热容单位为 J/(kg·K)（是否误填 kJ/(kg·K)？）。")
+        E.chk("Hv", pos=True, wlo=5e4, whi=5e6, hint="蒸发热单位为 J/kg（是否误填 kJ/kg 或 J/mol？）。")
+        E.chk("H", pos=True, wlo=5e4, whi=5e6, hint="汽化热单位为 J/kg（是否误填 kJ/kg 或 J/mol？）。")
+        E.chk("S", pos=True, whi=1e5, hint="液池面积单位为 m²，以围堰内面积为上限（8.2.2.1）。")
+        for k in ("t1", "t2", "t3"):
+            E.chk(k, pos=True, whi=7200, hint="8.2.2.1：蒸发时间一般按 15～30 min 计。")
+        E.chk("u", pos=True, wlo=0.5, whi=20, hint="风速单位为 m/s；最不利气象取 1.5 m/s（9.1.1.4）。")
+        if E.get("rmode") == "manual":
+            E.chk("r", pos=True, whi=200, hint="液池半径单位为 m。")
+        p = E.chk("p", pos=True, hi=101325 * 1.02,
+                  hi_msg="液体表面蒸气压 p 不应高于环境压力（约 101325 Pa）；敞开液池沸腾时取环境压力。请核对单位（Pa）。")
+        E.chk("M", pos=True, wlo=0.002, whi=1.0, hint="摩尔质量单位为 kg/mol（是否误填 g/mol？）。")
+        nm = (self.current["cn"] or self.current["en"]) if self.current else "该物质"
+        if None not in (TT, Tb, T0, p) and TT <= Tb and T0 <= Tb and p >= 101325 * 0.98:
+            E.warns.append("储存温度与环境温度均不高于%s沸点 %s K，液池不沸腾，表面蒸气压应取环境温度下的饱和蒸气压，而非环境压力，请核对 p。" % (nm, fmt(Tb)))
+            E._mark("p", "warn")
+        return not E.errs
 
     # -------------------------------------------------------------- 火灾伴生
     def tab_fire(self):
@@ -935,6 +1139,17 @@ class App:
 
     def calc_fire(self):
         F = self.fire
+        F.begin_check()
+        F.chk("Q", pos=True, whi=1e5, hint="在线量单位为 t（是否误填 kg？）。")
+        F.chk("lc", pos=True, wlo=1, whi=1e6, hint="LC₅₀ 单位为 mg/m³；以 ppm 表示的须按 mg/m³ = ppm × M(g/mol)/24.45 换算（25 ℃）。")
+        F.chk("B", nonneg=True)
+        F.chk("S", nonneg=True, hi=100, hi_msg="硫含量为质量百分数，不能大于 100%。", whi=5, hint="油品硫含量一般不超过 5%，请核对是否误填为小数或 mg/kg。")
+        F.chk("q", pos=True, hi=100, hi_msg="化学不完全燃烧值为百分数，不能大于 100%。")
+        F.chk("C", pos=True, hi=100, hi_msg="碳含量为质量百分数，不能大于 100%。", wlo=10, hint="以百分数填写（85 表示 85%），是否误填为小数？")
+        F.chk("Qb", nonneg=True, whi=10, hint="参与燃烧的物质量单位为 t/s（是否误填 kg/s 或 t/h？）。")
+        if F.errs:
+            self.fire_res.error(F.errs, F.warns)
+            return
         try:
             a = H.release_ratio(F.get("Q"), F.get("lc"))
             b = H.so2(F.get("B"), F.get("S"))
@@ -942,14 +1157,14 @@ class App:
         except ValueError as ex:
             self.fire_res.error("参数不完整或格式有误：%s" % ex)
             return
-        steps, warn = a["steps"] + b["steps"] + c["steps"], a["warn"] + b["warn"] + c["warn"]
+        steps, warn = a["steps"] + b["steps"] + c["steps"], F.warns + a["warn"] + b["warn"] + c["warn"]
         ratio = "信息不足" if a["v"] is None else "%s%%" % fmt(a["v"])
         params = [["有毒有害物质在线量 Q", fmt(F.get("Q")), "t", F.source("Q", "工程分析")], ["LC₅₀", fmt(F.get("lc")), "mg/m³", F.source("lc", "MSDS 或毒理资料，请注明")],
                   ["物质燃烧量 B", fmt(F.get("B")), "kg/h", "请注明"], ["硫含量 S", fmt(F.get("S")), "%", "油品质量标准或检测，请注明"],
                   ["化学不完全燃烧值 q", fmt(F.get("q")), "%", "式(F.15)注 1.5%～6.0%"], ["碳含量 C", fmt(F.get("C")), "%", "式(F.15)注 85%"],
                   ["参与燃烧的物质量 Q", fmt(F.get("Qb")), "t/s", "请注明"]]
         summary = ["释放比例 %s　SO₂ %s kg/h　CO %s kg/s" % (ratio, fmt(b["v"]), fmt(c["v"]))]
-        sheet = sheet_text("（四）火灾爆炸伴生／次生污染物估算", " 附录F.2 表F.4、F.3 式(F.14)(F.15)", params, steps,
+        sheet = RX.make_report("（四）火灾爆炸伴生／次生污染物估算", " 附录F.2 表F.4、F.3 式(F.14)(F.15)", params, steps,
                            ["未燃烧有毒有害物质释放比例 %s；SO₂ 排放速率 %s kg/h；CO 产生量 %s kg/s。" % (ratio, fmt(b["v"]), fmt(c["v"]))], warn)
         self.fire_res.show(summary, warn, steps, sheet)
 
@@ -987,6 +1202,9 @@ class App:
             M.show(k, not ideal)
         M.show("Q", M.get("qmode") == "manual")
         M.show("D", M.get("dmode") == "manual")
+        if not self.check_model(ideal):
+            self.model_res.error(M.errs, M.warns)
+            return
         try:
             if ideal:
                 rr = H.ideal_rho(M.get("igP"), M.get("igM"), M.get("igT"))
@@ -1018,6 +1236,7 @@ class App:
         except (ValueError, ZeroDivisionError) as ex:
             self.model_res.error("参数不完整或格式有误：%s" % ex)
             return
+        r["warn"] = M.warns + r["warn"]
         r["warn"].append("G.2.2：事故发生在丘陵、山地等复杂地形时，应考虑地形对扩散的影响，另行选择适用模型并说明理由。")
         params = [["排放时间 T_d", fmt(o["Td"]), "s", "源强计算"], ["事故点至计算点距离 X", fmt(o["X"]), "m", "平面布置／敏感目标"],
                   ["10 m 高处风速 U_r", fmt(o["Ur"]), "m/s", "9.1.1.4"], ["初始密度 ρ_rel", fmt(rr), "kg/m³", rrsrc], ["环境空气密度 ρ_a", fmt(ra), "kg/m³", rasrc]]
@@ -1029,9 +1248,44 @@ class App:
         summary = ["%s排放　R_i = %s　%s" % ("连续" if r["cont"] else "瞬时", fmt(r["v"]), "重质气体" if r["heavy"] else "轻质气体"),
                    "推荐模型：%s" % r["model"]]
         extra = "浓度预测须使用该模型及经认可的软件另行完成（附录G.4）。"
-        sheet = sheet_text("（五）大气风险预测模型筛选", " 附录G.2 式(G.2)～(G.4)", params, r["steps"],
+        sheet = RX.make_report("（五）大气风险预测模型筛选", " 附录G.2 式(G.2)～(G.4)", params, r["steps"],
                            ["理查德森数 R_i = %s，判定为%s气体，推荐采用 %s 进行预测。" % (fmt(r["v"]), "重质" if r["heavy"] else "轻质", r["model"])], r["warn"])
         self.model_res.show(summary, r["warn"], r["steps"], sheet, extra)
+
+    def check_model(self, ideal):
+        """模型筛选页输入校验：上游结果可用性、相态（气体泄漏不能取液池参数）、单位范围。"""
+        M = self.model
+        M.begin_check()
+        M.chk("Td", pos=True, whi=7200, hint="排放时间单位为 s。")
+        M.chk("X", pos=True, whi=1e5, hint="距离单位为 m。")
+        M.chk("Ur", pos=True, wlo=0.5, whi=20, hint="风速单位为 m/s；最不利气象取 1.5 m/s（9.1.1.4）。")
+        if ideal:
+            M.chk("igP", pos=True, wlo=5e4, whi=1e7, hint="压力单位为 Pa（绝对压力）。")
+            M.chk("igM", pos=True, wlo=0.002, whi=1.0, hint="摩尔质量单位为 kg/mol（是否误填 g/mol？）。")
+            M.temp("igT")
+            M.temp("igTa")
+        else:
+            M.chk("rr", pos=True, whi=50, hint="气体或气溶胶初始密度一般小于 50 kg/m³，单位为 kg/m³。")
+            M.chk("ra", pos=True, wlo=0.9, whi=1.5, hint="近地面空气密度约 1.1～1.3 kg/m³。")
+        qm, dm = M.get("qmode"), M.get("dmode")
+        if qm == "evap" or dm == "pool":
+            keys = [k for k, on in (("qmode", qm == "evap"), ("dmode", dm == "pool")) if on]
+            if self.last_leak_type == "gas" and self.evap.get("qlmode") == "leak":
+                M.error("当前事故为气体泄漏，不形成液池，不能取“液池蒸发”页的蒸发速率或液池直径。请将排放速率改为“取泄漏速率页结果”，"
+                        "源直径改为手工输入（可取裂口直径）。", *keys)
+            elif not self.last_evap:
+                M.error("“液池蒸发”页尚无有效结果（该页输入有误），请先修正该页，或改为手工输入。", *keys)
+        if qm == "leak":
+            if self.last_leak is None:
+                M.error("“泄漏速率”页尚无有效结果（该页输入有误），请先修正该页，或改为手工输入。", "qmode")
+            elif self.last_leak_type == "liq":
+                M.warns.append("排放速率取自液体泄漏速率。液体泄漏后进入大气的是液池蒸发量，宜改取“液池蒸发”页 Q₁+Q₂+Q₃；如按泄漏速率保守计，请在报告中说明。")
+        elif qm == "manual":
+            M.chk("Q", pos=True, whi=1000, hint="排放速率单位为 kg/s。")
+        if dm == "manual":
+            M.chk("D", pos=True, whi=500, hint="源直径单位为 m。")
+        M.chk("Qt", pos=True, whi=1e7, hint="瞬时排放质量单位为 kg。")
+        return not M.errs
 
     # -------------------------------------------------------------- 说明
     def tab_notes(self):
@@ -1084,26 +1338,55 @@ class App:
         self.calc_fire()
         self.calc_model()
 
-    def all_sheets(self):
-        return "\n".join(self.sheets[k] for k in ("risk", "leak", "evap", "fire", "model") if k in self.sheets)
+    ORDER = ("risk", "leak", "evap", "fire", "model")
+
+    def ordered(self, keys=None):
+        return [self.reports[k] for k in self.ORDER if k in self.reports and (keys is None or k in keys)]
+
+    def all_text(self):
+        return "\n".join(RX.to_text(r) for r in self.ordered())
 
     def clip(self, text):
+        if not text:
+            messagebox.showwarning(APP_NAME, "当前没有可复制的计算书（输入有误的模块不出计算书）。")
+            return
         self.root.clipboard_clear()
         self.root.clipboard_append(text)
         messagebox.showinfo(APP_NAME, "已复制到剪贴板。")
 
-    def export_text(self, text, name):
-        if not text:
-            messagebox.showwarning(APP_NAME, "当前没有可导出的计算书。")
+    def export(self, keys, fmt_):
+        reps = self.ordered(keys)
+        if not reps:
+            messagebox.showwarning(APP_NAME, "当前没有可导出的计算书（输入有误的模块不出计算书，请先按红色提示修改）。")
             return
-        p = filedialog.asksaveasfilename(defaultextension=".txt", initialfile="HJ169计算书_%s.txt" % name, filetypes=[("文本文件", "*.txt")])
-        if p:
-            with open(p, "w", encoding="utf-8-sig") as f:
-                f.write(text.replace("\n", "\r\n") if sys.platform == "win32" else text)
-            messagebox.showinfo(APP_NAME, "已导出：%s" % p)
+        name = "全部" if keys is None else reps[0]["title"].split("）", 1)[-1]
+        sub = (self.current["cn"] or self.current["en"]) if self.current else ""
+        base = "HJ169计算书_%s%s" % (sub + "_" if sub else "", name)
+        for ch in '\\/:*?"<>|':
+            base = base.replace(ch, "_")
+        ext, ftype = (".docx", ("Word 文档", "*.docx")) if fmt_ == "docx" else (".xlsx", ("Excel 工作簿", "*.xlsx"))
+        p = filedialog.asksaveasfilename(defaultextension=ext, initialfile=base + ext, filetypes=[ftype])
+        if not p:
+            return
+        try:
+            self.write_reports(reps, p, fmt_)
+        except PermissionError:
+            messagebox.showerror(APP_NAME, "无法写入：%s\n文件可能正在 Word／Excel 中打开，请关闭后重试。" % p)
+            return
+        except Exception as ex:
+            messagebox.showerror(APP_NAME, "导出失败：%s" % ex)
+            return
+        if messagebox.askyesno(APP_NAME, "已导出：%s\n是否立即打开？" % p) and sys.platform == "win32":
+            os.startfile(p)
 
-    def export_all(self):
-        self.export_text(self.all_sheets(), "全部")
+    def write_reports(self, reps, path, fmt_):
+        title = "环境风险计算书"
+        if self.current:
+            title += "（%s）" % (self.current["cn"] or self.current["en"])
+        if fmt_ == "docx":
+            RX.to_docx(reps, path, title)
+        else:
+            RX.to_xlsx(reps, path)
 
 
 def selftest(path):
@@ -1121,11 +1404,53 @@ def selftest(path):
     filled = app.fill_from(app.subs[nh3])
     app.recalc_all()
     out.append("带入参数：" + "、".join(filled))
-    for k in ("risk", "leak", "evap", "fire", "model"):
-        ok = k in app.sheets
+    for k in App.ORDER:
+        ok = k in app.reports
         bad += not ok
         out.append("计算书 %s：%s" % (k, "已生成" if ok else "缺失"))
-    out.append("风险潜势计算书首行：" + app.sheets.get("risk", "").splitlines()[0] if "risk" in app.sheets else "")
+    tmp = os.path.dirname(os.path.abspath(path))
+    try:
+        from docx import Document
+        from openpyxl import load_workbook
+        fd, fx = os.path.join(tmp, "sample_report.docx"), os.path.join(tmp, "sample_report.xlsx")
+        app.write_reports(app.ordered(), fd, "docx")
+        app.write_reports(app.ordered(), fx, "xlsx")
+        d = Document(fd)
+        wb = load_workbook(fx)
+        out.append("导出 Word：段落 %d，表格 %d；导出 Excel：工作表 %s" % (len(d.paragraphs), len(d.tables), "、".join(wb.sheetnames)))
+        bad += len(d.tables) != 10 or len(wb.sheetnames) != 6
+    except Exception as ex:
+        bad += 1
+        out.append("导出失败：%r" % ex)
+    # 当前物质点选
+    app.pick.set("甲苯")
+    app.pick_apply()
+    ok = app.current and app.current["cas"] == "108-88-3"
+    bad += not ok
+    out.append("点选“甲苯”：%s" % (app.sub_label(app.current) if app.current else "失败"))
+    # 输错提醒：氨按气体泄漏但温度低于沸点，应报错且不出计算书
+    app.set_current(app.subs[nh3])
+    L = app.leak
+    L.vars["type"].current([o[0] for o in L.vars["type"].options].index("gas"))
+    L.set("TG", 200)
+    app.calc_leak()
+    app.calc_evap()
+    app.calc_model()
+    ok = "leak" not in app.reports and any("液态" in e for e in L.errs)
+    bad += not ok
+    out.append("相态校核（氨 200 K 选气体泄漏）：%s；%s" % ("已拦截" if ok else "未拦截", L.errs[0] if L.errs else ""))
+    L.set("TG", 298.15)
+    L.set("P", 500000)
+    app.calc_leak()
+    app.calc_evap()
+    ok = "evap" not in app.reports and any("气体泄漏" in e for e in app.evap.errs)
+    bad += not ok
+    out.append("气体泄漏接液池蒸发：%s" % ("已拦截" if ok else "未拦截"))
+    L.set("P", -1)
+    app.calc_leak()
+    ok = "leak" not in app.reports
+    bad += not ok
+    out.append("负压力：%s" % ("已拦截" if ok else "未拦截"))
     app.q.set("甲苯")
     app.filter_db()
     out.append("搜索“甲苯”命中：%d 条" % len(app.tree.get_children()))

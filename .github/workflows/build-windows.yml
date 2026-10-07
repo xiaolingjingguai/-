@@ -1,0 +1,78 @@
+name: 构建 Windows 程序
+
+on:
+  push:
+    branches: [ "claude/**", "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 计算核心自校验
+        run: python tests/test_calc.py
+
+      - name: 安装 PyInstaller
+        run: python -m pip install pyinstaller==6.11.1
+
+      - name: 打包 EXE
+        run: >
+          pyinstaller --noconfirm --onefile --windowed
+          --name HJ169_Calculator
+          --add-data "app/data;data"
+          --paths app
+          app/hj169_gui.py
+
+      - name: EXE 自检（界面构建、物质库载入、各模块计算）
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath dist\HJ169_Calculator.exe -ArgumentList '--selftest', "$PWD\selftest.txt" -Wait -PassThru
+          Get-Content selftest.txt -Encoding UTF8
+          if ($p.ExitCode -ne 0) { throw "自检失败，退出码 $($p.ExitCode)" }
+
+      - name: 界面截图
+        shell: pwsh
+        run: |
+          $app = Start-Process -FilePath dist\HJ169_Calculator.exe -PassThru
+          Start-Sleep -Seconds 12
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          $g = [System.Drawing.Graphics]::FromImage($bmp)
+          $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          $bmp.Save("$PWD\screenshot.png")
+          Stop-Process -Id $app.Id -Force
+
+      - name: 打包 zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force pkg\HJ169_Calculator | Out-Null
+          Copy-Item dist\HJ169_Calculator.exe pkg\HJ169_Calculator\
+          Copy-Item packaging\README.txt pkg\HJ169_Calculator\
+          Copy-Item selftest.txt pkg\HJ169_Calculator\selftest_result.txt
+          Compress-Archive -Path pkg\HJ169_Calculator -DestinationPath HJ169_Calculator_win64.zip -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: HJ169_Calculator_win64
+          path: |
+            HJ169_Calculator_win64.zip
+            screenshot.png
+            selftest.txt
+
+      - name: 发布到 Releases
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "build-${{ github.run_number }}"
+          gh release create $tag HJ169_Calculator_win64.zip screenshot.png selftest.txt --target ${{ github.sha }} --prerelease --title "HJ 169 风险计算器 Windows 版（构建 ${{ github.run_number }}）" --notes "由 GitHub Actions 在 windows-latest 上自动构建，已通过程序自检。"

@@ -938,7 +938,7 @@ class App:
         self.draw_grade()
 
     # ---------------- 评价等级判定结果窗口 ----------------
-    GRADE_COLS = (("k", "环境要素", 80), ("e", "环境敏感程度", 95), ("p", "环境风险潜势", 95), ("g", "评价工作等级", 95), ("r", "评价范围（4.5）", 330))
+    GRADE_COLS = (("k", "环境要素", 95), ("e", "环境敏感程度", 120), ("p", "环境风险潜势", 120), ("g", "评价工作等级", 120), ("r", "评价范围（4.5）", 300))
 
     def make_grade_tree(self, master, size):
         t = ttk.Treeview(master, columns=[c[0] for c in self.GRADE_COLS], show="headings", height=4,

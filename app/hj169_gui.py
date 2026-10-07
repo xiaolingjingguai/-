@@ -1652,7 +1652,10 @@ def main():
         except Exception:
             pass
     root = tk.Tk()
-    App(root)
+    app = App(root)
+    if "--demo-grade" in sys.argv:
+        app.nb.select(1)
+        root.after(1500, app.show_grade_window)
     root.mainloop()
 
 

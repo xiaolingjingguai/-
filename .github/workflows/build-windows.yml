@@ -57,6 +57,11 @@ jobs:
           $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
           $bmp.Save("$PWD\screenshot.png")
           Stop-Process -Id $app.Id -Force
+          $app = Start-Process -FilePath dist\HJ169_Calculator.exe -ArgumentList '--demo-grade' -PassThru
+          Start-Sleep -Seconds 12
+          $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          $bmp.Save("$PWD\screenshot_grade.png")
+          Stop-Process -Id $app.Id -Force
 
       - name: 打包 zip
         shell: pwsh
@@ -74,6 +79,7 @@ jobs:
           path: |
             HJ169_Calculator_win64.zip
             screenshot.png
+            screenshot_grade.png
             selftest.txt
             sample_report.docx
             sample_report.xlsx
@@ -84,4 +90,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $tag = "build-${{ github.run_number }}"
-          gh release create $tag HJ169_Calculator_win64.zip screenshot.png selftest.txt sample_report.docx sample_report.xlsx --target ${{ github.sha }} --prerelease --title "HJ 169 风险计算器 Windows 版（构建 ${{ github.run_number }}）" --notes "由 GitHub Actions 在 windows-latest 上自动构建，已通过程序自检。"
+          gh release create $tag HJ169_Calculator_win64.zip screenshot.png screenshot_grade.png selftest.txt sample_report.docx sample_report.xlsx --target ${{ github.sha }} --prerelease --title "HJ 169 风险计算器 Windows 版（构建 ${{ github.run_number }}）" --notes "由 GitHub Actions 在 windows-latest 上自动构建，已通过程序自检。"

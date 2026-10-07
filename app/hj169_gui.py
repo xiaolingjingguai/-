@@ -274,6 +274,7 @@ class App:
         ttk.Button(top, text="全部导出 Excel", command=lambda: self.export(None, "xlsx")).pack(side="right")
         ttk.Button(top, text="全部导出 Word", command=lambda: self.export(None, "docx")).pack(side="right", padx=6)
         ttk.Button(top, text="复制全部文字", command=lambda: self.clip(self.all_text())).pack(side="right")
+        ttk.Button(top, text="评价等级结果", command=self.show_grade_window).pack(side="right", padx=6)
 
         cur = ttk.Frame(root, padding=(12, 0, 12, 4))
         cur.pack(fill="x")
@@ -321,9 +322,14 @@ class App:
         st.configure("SrcUser.TLabel", font=("Microsoft YaHei UI", 8), foreground="#8a4b00")
         st.configure("Cur.TLabel", font=("Microsoft YaHei UI", 10, "bold"), foreground="#0d6b66")
         st.configure("Warn.TLabel", foreground="#8a4b00")
+        st.configure("Grade.TLabel", font=("Microsoft YaHei UI", 11, "bold"), foreground="#0d6b66")
+        st.configure("GradeBig.TLabel", font=("Microsoft YaHei UI", 16, "bold"), foreground="#0d6b66")
         st.configure("Bad.TLabel", foreground="#b3261e", font=("Microsoft YaHei UI", 9, "bold"))
         st.configure("WarnLbl.TLabel", foreground="#8a4b00", font=("Microsoft YaHei UI", 9, "bold"))
         st.configure("Treeview", rowheight=24)
+        st.configure("Grade.Treeview", rowheight=28)
+        st.configure("GradeBig.Treeview", rowheight=36)
+        st.configure("GradeBig.Treeview.Heading", font=("Microsoft YaHei UI", 11, "bold"))
         st.configure("TNotebook.Tab", padding=(14, 5))
 
     def split(self, tab_title):
@@ -476,23 +482,41 @@ class App:
         cas = "无CAS号" if s["cas"].startswith("无CAS") else s["cas"]
         return "%s｜%s" % (s["cn"] or s["en"], cas)
 
+    QMARK = "★Q "
+
+    def q_subs(self):
+        """Q 计算表中的物质（按 CAS，无 CAS 按名称），供“当前物质”下拉优先列出。"""
+        out = []
+        for n, cas, *_ in getattr(self, "risk_items", []):
+            s = next((x for x in self.subs if cas and x["cas"] == cas), None) or next((x for x in self.subs if n and n in (x["cn"], x["en"])), None)
+            if s is None and n:
+                s = next((x for x in self.subs if any(b[0] == n for b in x["b1"])), None)
+            if s is not None and s not in out:
+                out.append(s)
+        return out
+
     def pick_filter(self, event=None):
         if event is not None and event.keysym in ("Up", "Down", "Return", "Escape", "Tab"):
             return
-        q = self.pick.get().strip().lower()
+        raw = self.pick.get().strip().replace(self.QMARK, "")
+        q = "" if self.current and raw == self.sub_label(self.current) else raw.lower()
         if "｜" in q:
             q = q.split("｜")[0]
-        items = []
+
+        def hit(s):
+            return not q or q in s["cas"].lower() or q in (s["cn"] or "").lower() or q in (s["en"] or "").lower()
+        top = [s for s in self.q_subs() if hit(s)]
+        items = list(top)
         for s in self.subs:
-            if not q or q in s["cas"].lower() or q in (s["cn"] or "").lower() or q in (s["en"] or "").lower():
+            if len(items) >= 80 + len(top):
+                break
+            if s not in top and hit(s):
                 items.append(s)
-                if len(items) >= 80:
-                    break
         self.pick_items = items
-        self.pick["values"] = [self.sub_label(s) for s in items]
+        self.pick["values"] = [(self.QMARK if s in top else "") + self.sub_label(s) for s in items]
 
     def pick_apply(self):
-        text = self.pick.get().strip()
+        text = self.pick.get().strip().replace(self.QMARK, "").strip()
         if not text:
             return
         s = next((x for x in self.subs if self.sub_label(x) == text), None)
@@ -657,8 +681,21 @@ class App:
         self.E.head("四、评价范围", "4.5；大气毒性终点浓度预测到达距离超出范围时相应扩大")
         self.E.add("reach", "大气毒性终点浓度最大预测到达距离（尚未预测填 0）", "m", 0)
 
-        self.risk_res = ResultPane(pw, self, "risk")
-        pw.add(self.risk_res, weight=2)
+        right = ttk.Frame(pw)
+        gp = ttk.LabelFrame(right, text="评价等级判定结果（表1、表2、6.4、4.5）", padding=6)
+        gp.pack(fill="x", padx=6, pady=(6, 0))
+        gb = ttk.Frame(gp)
+        gb.pack(fill="x")
+        self.grade_head = ttk.Label(gb, text="", style="Grade.TLabel", wraplength=520, justify="left")
+        self.grade_head.pack(side="left", fill="x", expand=True)
+        ttk.Button(gb, text="放大查看／复制", command=self.show_grade_window).pack(side="right")
+        self.grade_tree = self.make_grade_tree(gp, 9)
+        self.grade_tree.pack(fill="x", pady=(4, 0))
+        self.grade_win = None
+        self.grade = None
+        self.risk_res = ResultPane(right, self, "risk")
+        self.risk_res.pack(fill="both", expand=True)
+        pw.add(right, weight=2)
         nh3 = next((s for s in self.subs if s["cas"] == "7664-41-7"), None)
         if nh3:
             self.risk_items.append([nh3["cn"], nh3["cas"], nh3["b1"][0][1], 20.0, "表B.1（示例数据）"])
@@ -669,6 +706,8 @@ class App:
         self.draw_m()
 
     def draw_q(self):
+        if hasattr(self, "pick"):
+            self.pick_filter()
         self.qtree.delete(*self.qtree.get_children())
         for i, (n, cas, qc, q, src) in enumerate(self.risk_items):
             r = fmt(q / qc) if qc else "—"
@@ -816,6 +855,8 @@ class App:
             E.warns.append("尚未添加工艺单元，M 按 0 计。")
         if E.errs:
             self.risk_res.error(E.errs, E.warns)
+            self.grade = None
+            self.draw_grade()
             return
         items = [{"name": n, "cas": c, "qc": qc, "q": q} for n, c, qc, q, _ in self.risk_items]
         Q = H.q_value(items)
@@ -891,6 +932,87 @@ class App:
         sheet = RX.make_report("（一）环境风险潜势初判与评价工作等级判定", " 4.3、4.4.4、4.5、6.1～6.4、附录C、附录D", params, steps,
                                [para1, para2, para3, para4, "（审批类别与评价工作等级请工程师对照现行名录及地方规定复核。）"], warn, tables)
         self.risk_res.show(summary, warn, steps, sheet, extra)
+        self.grade = {"head": "建设项目环境风险潜势 %s，评价工作等级：%s" % (overall, H.GRADE[overall]),
+                      "sub": "Q = %s（%s）　M = %s（%s）　P = %s" % (fmt(Q["v"]), Q["cls"], fmt(M["v"]), M["cls"], P or "—（Q＜1）"),
+                      "rows": rows, "paras": [para1, para2, para3, para4]}
+        self.draw_grade()
+
+    # ---------------- 评价等级判定结果窗口 ----------------
+    GRADE_COLS = (("k", "环境要素", 80), ("e", "环境敏感程度", 95), ("p", "环境风险潜势", 95), ("g", "评价工作等级", 95), ("r", "评价范围（4.5）", 330))
+
+    def make_grade_tree(self, master, size):
+        t = ttk.Treeview(master, columns=[c[0] for c in self.GRADE_COLS], show="headings", height=4,
+                         style="GradeBig.Treeview" if size > 10 else "Grade.Treeview")
+        for c, h, w in self.GRADE_COLS:
+            t.heading(c, text=h)
+            t.column(c, width=w, anchor="w" if c == "r" else "center", stretch=(c == "r"))
+        t.tag_configure("all", background="#e2f0ee", font=("Microsoft YaHei UI", size + 1, "bold"))
+        t.tag_configure("el", font=("Microsoft YaHei UI", size + 1))
+        return t
+
+    def fill_grade_tree(self, t):
+        t.delete(*t.get_children())
+        for r in (self.grade or {}).get("rows", []):
+            t.insert("", "end", values=r, tags=("all" if r[0] == "建设项目" else "el",))
+
+    def draw_grade(self):
+        g = self.grade
+        self.grade_head.configure(text=(g["head"] + "\n" + g["sub"]) if g else "输入有误，暂无判定结果，请按下方红色提示修改。",
+                                  style="Grade.TLabel" if g else "Bad.TLabel")
+        self.fill_grade_tree(self.grade_tree)
+        if self.grade_win is not None and self.grade_win.winfo_exists():
+            self.refresh_grade_window()
+
+    def grade_text(self):
+        g = self.grade
+        if not g:
+            return ""
+        head = "\t".join(c[1] for c in self.GRADE_COLS)
+        return "环境风险评价工作等级判定表\n%s\n%s\n\n%s\n" % (head, "\n".join("\t".join(r) for r in g["rows"]), "\n".join(g["paras"]))
+
+    def show_grade_window(self):
+        if self.grade_win is not None and self.grade_win.winfo_exists():
+            self.grade_win.deiconify()
+            self.grade_win.lift()
+            return
+        w = self.grade_win = tk.Toplevel(self.root)
+        w.title("环境风险评价等级判定结果")
+        w.geometry("980x620")
+        top = ttk.Frame(w, padding=(14, 12, 14, 4))
+        top.pack(fill="x")
+        self.gw_head = ttk.Label(top, text="", style="GradeBig.TLabel", wraplength=920, justify="left")
+        self.gw_head.pack(anchor="w")
+        self.gw_sub = ttk.Label(top, text="", style="Ref.TLabel")
+        self.gw_sub.pack(anchor="w", pady=(2, 0))
+        mid = ttk.Frame(w, padding=(14, 4))
+        mid.pack(fill="x")
+        ttk.Label(mid, text="环境风险评价工作等级判定表", style="H.TLabel").pack(anchor="w")
+        self.gw_tree = self.make_grade_tree(mid, 11)
+        self.gw_tree.configure(height=4)
+        self.gw_tree.pack(fill="x", pady=(4, 0))
+        ttk.Label(w, text="判定结论", style="H.TLabel", padding=(14, 8, 14, 0)).pack(anchor="w")
+        self.gw_txt = tk.Text(w, wrap="word", font=("Microsoft YaHei UI", 11), relief="flat", padx=12, pady=8, background="#f6f8f7", height=10)
+        self.gw_txt.pack(fill="both", expand=True, padx=14)
+        bar = ttk.Frame(w, padding=(14, 8))
+        bar.pack(fill="x")
+        ttk.Button(bar, text="关闭", command=w.destroy).pack(side="right")
+        ttk.Button(bar, text="导出 Excel", command=lambda: self.export(["risk"], "xlsx")).pack(side="right", padx=6)
+        ttk.Button(bar, text="导出 Word", command=lambda: self.export(["risk"], "docx")).pack(side="right")
+        ttk.Button(bar, text="复制判定表与结论", command=lambda: self.clip(self.grade_text())).pack(side="right", padx=6)
+        ttk.Label(bar, text="审批类别与评价工作等级请对照现行名录及地方规定复核。", style="Warn.TLabel").pack(side="left")
+        self.refresh_grade_window()
+
+    def refresh_grade_window(self):
+        g = self.grade
+        self.gw_head.configure(text=g["head"] if g else "输入有误，暂无判定结果，请回到“评价等级判定”页按红色提示修改。",
+                               style="GradeBig.TLabel" if g else "Bad.TLabel")
+        self.gw_sub.configure(text=g["sub"] if g else "")
+        self.fill_grade_tree(self.gw_tree)
+        self.gw_txt.configure(state="normal")
+        self.gw_txt.delete("1.0", "end")
+        if g:
+            self.gw_txt.insert("end", "\n\n".join(g["paras"]))
+        self.gw_txt.configure(state="disabled")
 
     # -------------------------------------------------------------- 泄漏速率
     def tab_leak(self):
@@ -1482,6 +1604,34 @@ def selftest(path):
     ok = "leak" not in app.reports
     bad += not ok
     out.append("负压力：%s" % ("已拦截" if ok else "未拦截"))
+    # 福泰热镀锌项目（用户上传风险专章）：Q=11.75（10≤Q＜100）、M3、P3，E1／E3／E3 → Ⅲ／Ⅱ／Ⅱ，综合Ⅲ，二级
+    app.set_current(app.subs[nh3])
+    app.risk_items[:] = [["盐酸（≥37%）", "7647-01-0", 7.5, 25.1 + 58.8 + 4.1, "表B.1"], ["氨水（浓度≥20%）", "7664-41-7", 10.0, 0.5, "表B.1"],
+                         ["油类物质", "", 2500.0, 0.11, "表B.1"]]
+    app.m_units[:] = [(2, 1), (5, 1)]
+    app.draw_q()
+    E = app.E
+    E.set("pop5", 60000)
+    E.set("pop05", 600)
+    E.vars["D"].current(3)
+    app.calc_risk()
+    g = app.grade
+    exp = [["大气", "E1", "Ⅲ", "二级"], ["地表水", "E3", "Ⅱ", "三级"], ["地下水", "E3", "Ⅱ", "三级"], ["建设项目", "—", "Ⅲ", "二级"]]
+    ok = bool(g) and [r[:4] for r in g["rows"]] == exp
+    bad += not ok
+    out.append("评价等级判定（福泰热镀锌算例）：%s；%s" % ("与报告一致" if ok else "不一致", g["head"] if g else "无结果"))
+    out.append("判定表：" + "；".join("、".join(r) for r in g["rows"]) if g else "")
+    app.show_grade_window()
+    root.update()
+    ok = len(app.gw_tree.get_children()) == 4 and "Ⅲ" in app.gw_head.cget("text")
+    bad += not ok
+    out.append("评价等级结果窗口：%s" % ("已显示" if ok else "异常"))
+    app.pick.set("")
+    app.pick_filter()
+    vals = list(app.pick["values"])
+    ok = len(vals) >= 2 and vals[0].startswith(App.QMARK) and vals[1].startswith(App.QMARK)
+    bad += not ok
+    out.append("当前物质下拉前列（Q 计算中的物质）：%s" % "；".join(vals[:3]))
     app.q.set("甲苯")
     app.filter_db()
     out.append("搜索“甲苯”命中：%d 条" % len(app.tree.get_children()))

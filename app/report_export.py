@@ -103,6 +103,8 @@ def _table(doc, caption, header, rows, widths_cm):
     t = doc.add_table(rows=1 + len(rows), cols=len(header))
     t.alignment = WD_TABLE_ALIGNMENT.CENTER
     t.autofit = False
+    for ci, w in enumerate(widths_cm):
+        t.columns[ci].width = Cm(w)
     for ri, vals in enumerate([header] + rows):
         for ci, v in enumerate(vals):
             c = t.cell(ri, ci)
@@ -127,10 +129,10 @@ def _module_docx(doc, rep, tno):
     if name.endswith("计算"):
         name = name[:-2]
     _table(doc, "表%d　%s参数取值" % (tno, name), ["序号", "参数", "取值", "单位", "取值依据／来源"],
-           [[str(i), p[0], p[1], p[2] or "—", p[3]] for i, p in enumerate(rep["params"], 1)], [1.1, 3.6, 3.0, 1.7, 6.0])
+           [[str(i), p[0], p[1], p[2] or "—", p[3]] for i, p in enumerate(rep["params"], 1)], [1.3, 3.8, 2.8, 1.6, 6.5])
     _para(doc, "3. 计算过程", 12, True, indent=False, space_before=6)
     _table(doc, "表%d　%s计算过程" % (tno + 1, name), ["序号", "计算项目", "公式及依据", "代入数值", "计算结果"],
-           [[str(i), s[0], s[1], s[2], s[3]] for i, s in enumerate(rep["steps"], 1)], [1.1, 2.8, 5.0, 4.3, 2.2])
+           [[str(i), s[0], s[1], s[2], s[3]] for i, s in enumerate(rep["steps"], 1)], [1.3, 2.8, 4.9, 4.6, 2.4])
     _para(doc, "4. 计算结果", 12, True, indent=False, space_before=6)
     for r in rep["results"]:
         _para(doc, r)

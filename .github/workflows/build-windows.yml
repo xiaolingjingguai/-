@@ -48,6 +48,11 @@ jobs:
           Get-Content selftest.txt -Encoding UTF8
           if ($p.ExitCode -ne 0) { throw "自检失败，退出码 $($p.ExitCode)" }
 
+      - name: 打包作者授权工具 EXE（授权码生成器 + 密钥生成器，可双击使用）
+        run: |
+          pyinstaller --noconfirm --onefile --windowed --name HJ169_授权码生成器 --paths app --hidden-import license_verify --hidden-import _ed25519_pure tools/license_issuer.py
+          pyinstaller --noconfirm --onefile --console --name HJ169_密钥生成器 tools/make_keys.py
+
       - name: 为 CI 运行机签发演示授权（放入程序目录，使启动门禁可通过）
         shell: pwsh
         run: |
@@ -84,11 +89,21 @@ jobs:
           Copy-Item sample_report.docx, sample_report.xlsx pkg\HJ169_Calculator\
           Compress-Archive -Path pkg\HJ169_Calculator -DestinationPath HJ169_Calculator_win64.zip -Force
 
+      - name: 打包作者授权工具 zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force pkg\HJ169_作者授权工具 | Out-Null
+          Copy-Item dist\HJ169_授权码生成器.exe pkg\HJ169_作者授权工具\
+          Copy-Item dist\HJ169_密钥生成器.exe pkg\HJ169_作者授权工具\
+          Copy-Item packaging\软件授权说明.md pkg\HJ169_作者授权工具\
+          Compress-Archive -Path pkg\HJ169_作者授权工具 -DestinationPath HJ169_作者授权工具_win64.zip -Force
+
       - uses: actions/upload-artifact@v4
         with:
           name: HJ169_Calculator_win64
           path: |
             HJ169_Calculator_win64.zip
+            HJ169_作者授权工具_win64.zip
             screenshot.png
             screenshot_grade.png
             selftest.txt
@@ -101,4 +116,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $tag = "build-${{ github.run_number }}"
-          gh release create $tag HJ169_Calculator_win64.zip screenshot.png screenshot_grade.png selftest.txt sample_report.docx sample_report.xlsx --target ${{ github.sha }} --prerelease --title "HJ 169 风险计算器 Windows 版（构建 ${{ github.run_number }}）" --notes "由 GitHub Actions 在 windows-latest 上自动构建，已通过程序自检。"
+          gh release create $tag HJ169_Calculator_win64.zip HJ169_作者授权工具_win64.zip screenshot.png screenshot_grade.png selftest.txt sample_report.docx sample_report.xlsx --target ${{ github.sha }} --prerelease --title "HJ 169 风险计算器 Windows 版（构建 ${{ github.run_number }}）" --notes "由 GitHub Actions 在 windows-latest 上自动构建，已通过程序自检。含被保护程序 HJ169_Calculator 与作者授权工具（授权码生成器 + 密钥生成器）。"

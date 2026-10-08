@@ -34,7 +34,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "app"))
 import license_verify as LV  # noqa: E402
 
-DEFAULT_KEY = os.path.join(HERE, "keys", "author_private.pem")
+# 打包成 EXE 后，私钥默认到 EXE 所在目录的 keys/ 下找；脚本运行时用 tools/keys/
+BASE = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else HERE
+DEFAULT_KEY = os.path.join(BASE, "keys", "author_private.pem")
 DEMO_KEY = os.path.join(HERE, "keys_demo", "private_demo.pem")
 
 DEFAULT_YEARS = 1  # 不指定到期日时的默认有效期（年）
@@ -136,7 +138,12 @@ def _gui():
     n_var = row(2, "授权给（可选）：")
     x_var = row(3, "到期日(YYYY-MM-DD，空=默认一年，填“永久”=永久)：")
 
-    key_default = DEFAULT_KEY if os.path.exists(DEFAULT_KEY) else DEMO_KEY
+    if os.path.exists(DEFAULT_KEY):
+        key_default = DEFAULT_KEY
+    elif os.path.exists(DEMO_KEY):
+        key_default = DEMO_KEY
+    else:
+        key_default = ""  # 打包后首次使用：留空，由用户“浏览…”选私钥
     k_var = tk.StringVar(value=key_default)
     ttk.Label(frm, text="私钥文件：").grid(row=4, column=0, sticky="e", padx=(0, 8), pady=4)
     ttk.Entry(frm, textvariable=k_var, width=32).grid(row=4, column=1, sticky="we", pady=4)

@@ -646,24 +646,26 @@ class App:
         mf = ttk.Frame(f)
         mf.grid(row=6, column=0, sticky="ew", pady=4)
         mf.columnconfigure(1, weight=1)
-        for c, t in enumerate(("勾选", "表C.1 评估依据（可多项勾选）", "分值", "套数", "得分")):
-            ttk.Label(mf, text=t, style="H.TLabel").grid(row=0, column=c, sticky="w", padx=3)
-        self.m_chk, self.m_cnt, self.m_score = [], [], []
+        self.m_chk, self.m_cnt, self.m_score, names = [], [], [], []
         for i, (name, score, lab) in enumerate(H.C1):
             v, cv = tk.BooleanVar(value=(i == 2)), tk.StringVar(value="1")
-            ttk.Checkbutton(mf, variable=v, command=self.sync_m).grid(row=i + 1, column=0, padx=3)
-            t = ttk.Label(mf, text=name, wraplength=400, justify="left")
-            t.grid(row=i + 1, column=1, sticky="w", pady=2, padx=3)
+            ttk.Checkbutton(mf, variable=v, command=self.sync_m).grid(row=2 * i, column=0, sticky="n", padx=(0, 4), pady=(6, 0))
+            t = ttk.Label(mf, text="%d. %s" % (i + 1, name), wraplength=360, justify="left")
+            t.grid(row=2 * i, column=1, sticky="w", pady=(6, 0))
             t.bind("<Button-1>", lambda e, v=v: (v.set(not v.get()), self.sync_m()))
-            ttk.Label(mf, text=lab, style="Unit.TLabel").grid(row=i + 1, column=2, sticky="w", padx=3)
-            en = ttk.Entry(mf, textvariable=cv, width=5, state="normal" if "/套" in lab else "disabled")
-            en.grid(row=i + 1, column=3, padx=3)
+            names.append(t)
+            sub = ttk.Frame(mf)
+            sub.grid(row=2 * i + 1, column=1, sticky="w")
+            ttk.Label(sub, text="分值 %s　　套数 " % lab, style="Unit.TLabel").pack(side="left")
+            en = ttk.Entry(sub, textvariable=cv, width=5, state="normal" if "/套" in lab else "disabled")
+            en.pack(side="left")
             en.bind("<KeyRelease>", lambda e: self.sync_m())
-            sl = ttk.Label(mf, text="", width=6, anchor="e")
-            sl.grid(row=i + 1, column=4, padx=3)
+            sl = ttk.Label(sub, text="")
+            sl.pack(side="left", padx=(10, 0))
             self.m_chk.append(v)
             self.m_cnt.append(cv)
             self.m_score.append(sl)
+        mf.bind("<Configure>", lambda e: [t.configure(wraplength=max(200, e.width - 40)) for t in names])
         ttk.Label(f, text="注：a 高温指工艺温度≥300 ℃，高压指压力容器设计压力≥10.0 MPa；b 长输管道运输项目应按站场、管线分段进行评价（表C.1 注）。"
                           "“/套”项按套数计分，其余项为固定分值。", style="Src.TLabel", wraplength=640).grid(row=7, column=0, sticky="w")
         self.m_total = ttk.Label(f, text="", style="Grade.TLabel")
@@ -755,7 +757,7 @@ class App:
                 c = 1
             self.m_units.append((i, c))
             parts.append(fmt(score * c))
-            self.m_score[i].configure(text=fmt(score * c), style="TLabel")
+            self.m_score[i].configure(text="得分 %s" % fmt(score * c), style="Cur.TLabel")
         if self.m_bad:
             self.m_total.configure(text="M：套数有误", style="Bad.TLabel")
         elif self.m_units:

@@ -14,7 +14,8 @@
             --expiry 2027-12-31 \
             --key tools/keys/author_private.pem \
             --out license.key
-    --expiry 省略即为永久授权。
+    --expiry 省略即默认一年有效期（自签发日起）；加 --permanent 则为永久授权；
+    也可用 --expiry YYYY-MM-DD 指定任意到期日。
 
 签发使用私钥对 (程序标签 + 机器码 + 名称 + 签发日 + 到期日) 做 Ed25519 签名，
 被保护程序用内置公钥验证。私钥务必自存，勿上传仓库或分发。
@@ -35,6 +36,33 @@ import license_verify as LV  # noqa: E402
 
 DEFAULT_KEY = os.path.join(HERE, "keys", "author_private.pem")
 DEMO_KEY = os.path.join(HERE, "keys_demo", "private_demo.pem")
+
+DEFAULT_YEARS = 1  # 不指定到期日时的默认有效期（年）
+_PERMANENT_WORDS = {"永久", "none", "never", "0", "permanent"}
+
+
+def _plus_years(d, years):
+    try:
+        return d.replace(year=d.year + years)
+    except ValueError:  # 2月29日等边界，顺延到下一天
+        return d.replace(year=d.year + years, day=28) + datetime.timedelta(days=1)
+
+
+def resolve_expiry(raw, permanent=False):
+    """把用户输入的到期日解析成最终值（供 make_license 使用）。
+    - permanent=True 或输入“永久/none/never/0”→ None（永久）
+    - 留空（None/""）→ 默认 DEFAULT_YEARS 年后的日期
+    - 其它 → 按 YYYY-MM-DD 校验后原样返回
+    """
+    if permanent:
+        return None
+    s = (raw or "").strip()
+    if s == "":
+        return _plus_years(datetime.date.today(), DEFAULT_YEARS).isoformat()
+    if s.lower() in _PERMANENT_WORDS or s in _PERMANENT_WORDS:
+        return None
+    datetime.date.fromisoformat(s)  # 校验格式，错误即抛出
+    return s
 
 
 def _load_private(path):
@@ -68,18 +96,20 @@ def _cli(argv):
     ap = argparse.ArgumentParser(description="HJ169 授权码生成器（作者端）")
     ap.add_argument("--machine", required=True, help="用户机器码，如 A1B2-C3D4-E5F6-7890")
     ap.add_argument("--name", default="", help="授权给（名称/单位，可选）")
-    ap.add_argument("--expiry", default="", help="到期日 YYYY-MM-DD，省略为永久")
+    ap.add_argument("--expiry", default="", help="到期日 YYYY-MM-DD，省略为默认一年")
+    ap.add_argument("--permanent", action="store_true", help="签发永久授权（无到期日）")
     ap.add_argument("--key", default="", help="私钥 PEM 路径，默认 tools/keys/author_private.pem")
     ap.add_argument("--out", default="license.key", help="输出文件，默认 license.key")
     a = ap.parse_args(argv)
-    text, used = make_license(a.machine, a.name, a.expiry or None, a.key or None)
+    expiry = resolve_expiry(a.expiry, a.permanent)
+    text, used = make_license(a.machine, a.name, expiry, a.key or None)
     with open(a.out, "w", encoding="utf-8") as f:
         f.write(text + "\n")
     demo = os.path.abspath(used) == os.path.abspath(DEMO_KEY)
     print("已签发：%s" % a.out)
     print("  机器码：%s" % _norm_machine(a.machine))
     print("  授权给：%s" % (a.name or "(未填)"))
-    print("  到期  ：%s" % (a.expiry or "永久"))
+    print("  到期  ：%s" % (expiry or "永久"))
     print("  私钥  ：%s%s" % (used, "  ← 演示密钥！正式分发前请换成你自己的私钥" if demo else ""))
     return 0
 
@@ -104,7 +134,7 @@ def _gui():
 
     m_var = row(1, "用户机器码：")
     n_var = row(2, "授权给（可选）：")
-    x_var = row(3, "到期日(YYYY-MM-DD，空=永久)：")
+    x_var = row(3, "到期日(YYYY-MM-DD，空=默认一年，填“永久”=永久)：")
 
     key_default = DEFAULT_KEY if os.path.exists(DEFAULT_KEY) else DEMO_KEY
     k_var = tk.StringVar(value=key_default)
@@ -129,7 +159,8 @@ def _gui():
             messagebox.showwarning("提示", "请填写用户机器码")
             return
         try:
-            text, used = make_license(m, n_var.get().strip(), x_var.get().strip() or None, k_var.get().strip())
+            expiry = resolve_expiry(x_var.get().strip())
+            text, used = make_license(m, n_var.get().strip(), expiry, k_var.get().strip())
         except Exception as ex:
             messagebox.showerror("签发失败", str(ex))
             return
@@ -139,7 +170,8 @@ def _gui():
             return
         with open(out, "w", encoding="utf-8") as f:
             f.write(text + "\n")
-        messagebox.showinfo("已签发", "已生成：\n%s\n\n把它发给该用户，放在程序同一目录即可。" % out)
+        messagebox.showinfo("已签发", "已生成：\n%s\n到期：%s\n\n把它发给该用户，放在程序同一目录即可。"
+                            % (out, expiry or "永久"))
 
     ttk.Button(frm, text="签发 license.key", command=do_issue).grid(
         row=6, column=0, columnspan=3, pady=(10, 0), sticky="we")

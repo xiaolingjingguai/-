@@ -33,6 +33,15 @@ def run():
     ok, info, reason = LV.verify_license_bytes(text, code1)
     check("有效许可证通过", ok and info and info.get("name") == "测试单位")
 
+    import datetime
+    exp = LI.resolve_expiry("")  # 留空 → 默认一年
+    one_year = LI._plus_years(datetime.date.today(), 1).isoformat()
+    check("默认有效期一年", exp == one_year)
+    check("显式永久", LI.resolve_expiry("", permanent=True) is None and LI.resolve_expiry("永久") is None)
+    text, _ = LI.make_license(code1, "一年用户", exp, DEMO_KEY)
+    ok, info, _ = LV.verify_license_bytes(text, code1)
+    check("一年期许可证当前有效", ok and info.get("expiry") == one_year)
+
     text, _ = LI.make_license(code1, "", "2020-01-01", DEMO_KEY)
     ok, _, reason = LV.verify_license_bytes(text, code1)
     check("过期许可证拒绝", (not ok) and "到期" in reason)

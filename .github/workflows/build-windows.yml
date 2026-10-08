@@ -26,7 +26,7 @@ jobs:
         run: python tests/test_calc.py
 
       - name: 安装 PyInstaller 与依赖
-        run: python -m pip install pyinstaller==6.11.1 python-docx==1.2.0 openpyxl==3.1.5 cryptography==44.0.0
+        run: python -m pip install pyinstaller==6.11.1 openpyxl==3.1.5 cryptography==44.0.0
 
       - name: 许可机制自测
         run: python tests/test_license.py
@@ -37,9 +37,45 @@ jobs:
           --name HJ169_Calculator
           --add-data "app/data;data"
           --paths app
-          --collect-data docx
-          --hidden-import docx --hidden-import openpyxl
+          --hidden-import openpyxl
+          --exclude-module docx
+          --exclude-module lxml
+          --exclude-module numpy
+          --exclude-module PIL
+          --exclude-module pandas
+          --exclude-module ssl
+          --exclude-module _ssl
+          --exclude-module sqlite3
+          --exclude-module _sqlite3
+          --exclude-module unittest
+          --exclude-module pydoc
+          --exclude-module xmlrpc
+          --exclude-module lib2to3
+          --exclude-module distutils
+          --exclude-module setuptools
+          --exclude-module pkg_resources
+          --exclude-module bz2
+          --exclude-module _bz2
+          --exclude-module lzma
+          --exclude-module _lzma
+          --exclude-module asyncio
+          --exclude-module multiprocessing
+          --exclude-module pdb
+          --exclude-module doctest
+          --exclude-module ftplib
+          --exclude-module imaplib
+          --exclude-module smtplib
+          --exclude-module poplib
+          --exclude-module nntplib
+          --exclude-module telnetlib
+          --exclude-module curses
+          --exclude-module _ctypes_test
+          --exclude-module test
           app/hj169_gui.py
+
+      - name: EXE 体积
+        shell: pwsh
+        run: Get-Item dist\HJ169_Calculator.exe | Select-Object Name, Length
 
       - name: EXE 自检（界面构建、物质库载入、各模块计算）
         shell: pwsh
@@ -59,7 +95,7 @@ jobs:
           $demo = "9c4215f9cca756438bb2110b0de6bfe5cee4b7a5ac8adf22ebc354cc1e31ba1e"
           Copy-Item app\license_verify.py "$env:RUNNER_TEMP\lv.bak"
           (Get-Content app\license_verify.py -Raw) -replace 'PUBLIC_KEY_HEX = "[0-9a-fA-F]+"', "PUBLIC_KEY_HEX = `"$demo`"" | Set-Content -NoNewline app\license_verify.py
-          pyinstaller --noconfirm --onefile --windowed --name HJ169_Calculator_demo --add-data "app/data;data" --paths app --collect-data docx --hidden-import docx --hidden-import openpyxl app/hj169_gui.py
+          pyinstaller --noconfirm --onefile --windowed --name HJ169_Calculator_demo --add-data "app/data;data" --paths app --hidden-import openpyxl --exclude-module docx --exclude-module lxml --exclude-module numpy --exclude-module PIL --exclude-module pandas --exclude-module ssl --exclude-module _ssl --exclude-module sqlite3 --exclude-module _sqlite3 --exclude-module unittest --exclude-module pydoc --exclude-module xmlrpc --exclude-module lib2to3 --exclude-module distutils --exclude-module setuptools --exclude-module pkg_resources --exclude-module bz2 --exclude-module _bz2 --exclude-module lzma --exclude-module _lzma --exclude-module asyncio --exclude-module multiprocessing --exclude-module pdb --exclude-module doctest --exclude-module ftplib --exclude-module imaplib --exclude-module smtplib --exclude-module poplib --exclude-module nntplib --exclude-module telnetlib --exclude-module curses --exclude-module _ctypes_test --exclude-module test app/hj169_gui.py
           Copy-Item "$env:RUNNER_TEMP\lv.bak" app\license_verify.py -Force
 
       - name: 为截图演示版签发授权（演示私钥；正式版内嵌作者公钥，CI 无作者私钥，故另用演示版截图）
@@ -73,7 +109,7 @@ jobs:
       - name: 界面截图（演示版）
         shell: pwsh
         run: |
-          $app = Start-Process -FilePath dist\HJ169_Calculator_demo.exe -PassThru
+          $app = Start-Process -FilePath dist\HJ169_Calculator_demo.exe -ArgumentList '--demo-risk' -PassThru
           Start-Sleep -Seconds 12
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
           $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds

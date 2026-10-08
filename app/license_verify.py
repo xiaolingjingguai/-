@@ -32,7 +32,7 @@ import _ed25519_pure as _ed
 # 作者公钥（32 字节，hex）。由 make_keys 生成的作者密钥对的公钥；对应私钥只在作者手上。
 # 如需更换作者，运行 make_keys 生成新密钥对，用新公钥替换此常量后重新打包。
 # （CI 截图用演示版会在构建时临时替换为演示公钥，不影响发布版。）
-PUBLIC_KEY_HEX = "2729896ea5c4e7d7a8b31fe7320ce9f0dbec38cdfe2a61c345c3dbace706dad3"
+PUBLIC_KEY_HEX = "34890c731b85832e8f3e5d106767b7954128e1f7280208c1f0a9c4ad1ab3a16c"
 
 LICENSE_FILENAME = "license.key"
 APP_TAG = "HJ169"  # 签名域分隔，避免跨程序重放

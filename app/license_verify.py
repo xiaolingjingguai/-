@@ -27,10 +27,10 @@ import sys
 import _ed25519_pure as _ed
 
 # ====================================================================== 内置公钥
-# 作者公钥（32 字节，hex）。下方为【演示密钥】，正式分发前请务必用你自己的公钥替换：
-#   运行  python tools/make_keys.py  生成你的密钥对，按提示替换此常量，重新打包。
-# 私钥务必离线自存，切勿上传仓库或随程序分发。
-PUBLIC_KEY_HEX = "9c4215f9cca756438bb2110b0de6bfe5cee4b7a5ac8adf22ebc354cc1e31ba1e"
+# 作者公钥（32 字节，hex）。由 make_keys 生成的作者密钥对的公钥；对应私钥只在作者手上。
+# 如需更换作者，运行 make_keys 生成新密钥对，用新公钥替换此常量后重新打包。
+# （CI 截图用演示版会在构建时临时替换为演示公钥，不影响发布版。）
+PUBLIC_KEY_HEX = "2729896ea5c4e7d7a8b31fe7320ce9f0dbec38cdfe2a61c345c3dbace706dad3"
 
 LICENSE_FILENAME = "license.key"
 APP_TAG = "HJ169"  # 签名域分隔，避免跨程序重放
@@ -159,10 +159,14 @@ def _license_path():
     return os.path.join(os.getcwd(), LICENSE_FILENAME)
 
 
-def verify_license_bytes(raw, this_machine=None):
-    """验证许可证内容（bytes 或 str）。返回 (ok: bool, info: dict|None, reason: str)。"""
+def verify_license_bytes(raw, this_machine=None, public_key_hex=None):
+    """验证许可证内容（bytes 或 str）。返回 (ok: bool, info: dict|None, reason: str)。
+
+    public_key_hex 默认用内置作者公钥；测试时可传入其它公钥。"""
     if this_machine is None:
         this_machine = machine_code()
+    if public_key_hex is None:
+        public_key_hex = PUBLIC_KEY_HEX
     try:
         if isinstance(raw, bytes):
             raw = raw.decode("utf-8")
@@ -176,7 +180,7 @@ def verify_license_bytes(raw, this_machine=None):
         sig = base64.b64decode(fields["sig"])
     except Exception:
         return False, None, "许可证签名字段无效"
-    pub = bytes.fromhex(PUBLIC_KEY_HEX)
+    pub = bytes.fromhex(public_key_hex)
     if not _ed.verify(pub, sig, _canonical(fields)):
         return False, None, "许可证签名无效（可能被篡改，或并非本程序作者签发）"
     if str(fields.get("machine", "")).strip().upper() != this_machine.upper():

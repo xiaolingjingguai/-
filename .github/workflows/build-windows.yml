@@ -53,18 +53,27 @@ jobs:
           pyinstaller --noconfirm --onefile --windowed --name HJ169_授权码生成器 --paths app --hidden-import license_verify --hidden-import _ed25519_pure tools/license_issuer.py
           pyinstaller --noconfirm --onefile --console --name HJ169_密钥生成器 tools/make_keys.py
 
-      - name: 为 CI 运行机签发演示授权（放入程序目录，使启动门禁可通过）
+      - name: 构建截图用演示版（临时内嵌演示公钥，仅 CI 截图用，不发布）
+        shell: pwsh
+        run: |
+          $demo = "9c4215f9cca756438bb2110b0de6bfe5cee4b7a5ac8adf22ebc354cc1e31ba1e"
+          Copy-Item app\license_verify.py "$env:RUNNER_TEMP\lv.bak"
+          (Get-Content app\license_verify.py -Raw) -replace 'PUBLIC_KEY_HEX = "[0-9a-fA-F]+"', "PUBLIC_KEY_HEX = `"$demo`"" | Set-Content -NoNewline app\license_verify.py
+          pyinstaller --noconfirm --onefile --windowed --name HJ169_Calculator_demo --add-data "app/data;data" --paths app --collect-data docx --hidden-import docx --hidden-import openpyxl app/hj169_gui.py
+          Copy-Item "$env:RUNNER_TEMP\lv.bak" app\license_verify.py -Force
+
+      - name: 为截图演示版签发授权（演示私钥；正式版内嵌作者公钥，CI 无作者私钥，故另用演示版截图）
         shell: pwsh
         run: |
           $code = python -c "import sys; sys.path.insert(0,'app'); import license_verify as L; print(L.machine_code())"
           Write-Host "CI 机器码：$code"
-          python tools\license_issuer.py sign --machine "$code" --name "CI 演示" --out dist\license.key
+          python tools\license_issuer.py sign --machine "$code" --name "CI 演示" --key tools\keys_demo\private_demo.pem --out dist\license.key
           Get-Content dist\license.key -Encoding UTF8
 
-      - name: 界面截图
+      - name: 界面截图（演示版）
         shell: pwsh
         run: |
-          $app = Start-Process -FilePath dist\HJ169_Calculator.exe -PassThru
+          $app = Start-Process -FilePath dist\HJ169_Calculator_demo.exe -PassThru
           Start-Sleep -Seconds 12
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
           $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
@@ -73,7 +82,7 @@ jobs:
           $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
           $bmp.Save("$PWD\screenshot.png")
           Stop-Process -Id $app.Id -Force
-          $app = Start-Process -FilePath dist\HJ169_Calculator.exe -ArgumentList '--demo-grade' -PassThru
+          $app = Start-Process -FilePath dist\HJ169_Calculator_demo.exe -ArgumentList '--demo-grade' -PassThru
           Start-Sleep -Seconds 12
           $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
           $bmp.Save("$PWD\screenshot_grade.png")

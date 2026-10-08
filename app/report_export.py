@@ -35,143 +35,126 @@ def to_text(rep):
 
 
 # ---------------------------------------------------------------- Word
-def _font(run, size=None, bold=None, east="宋体", west="Times New Roman"):
-    from docx.oxml.ns import qn
-    from docx.shared import Pt
-    run.font.name = west
-    rpr = run._element.get_or_add_rPr()
-    rf = rpr.find(qn("w:rFonts"))
-    if rf is None:
-        rf = rpr.makeelement(qn("w:rFonts"), {})
-        rpr.append(rf)
-    rf.set(qn("w:eastAsia"), east)
-    rf.set(qn("w:ascii"), west)
-    rf.set(qn("w:hAnsi"), west)
-    if size:
-        run.font.size = Pt(size)
-    if bold is not None:
-        run.bold = bold
+# 直接写 OOXML（标准库 zipfile），不依赖 python-docx／lxml，以减小打包体积。
+from xml.sax.saxutils import escape as _esc
+
+_CM = 567  # 1 cm = 567 twip
 
 
-def _para(doc, text, size=12, bold=False, east="宋体", indent=True, align=None, space_before=0, space_after=0, line=1.5):
-    from docx.shared import Pt
-    p = doc.add_paragraph()
-    pf = p.paragraph_format
-    pf.line_spacing = line
-    pf.space_before = Pt(space_before)
-    pf.space_after = Pt(space_after)
+def _run(text, size=12, bold=False, east="宋体", west="Times New Roman", color=None):
+    rpr = '<w:rFonts w:ascii="%s" w:hAnsi="%s" w:eastAsia="%s" w:cs="%s"/>' % (west, west, east, west)
+    if bold:
+        rpr += "<w:b/><w:bCs/>"
+    if color:
+        rpr += '<w:color w:val="%s"/>' % color
+    rpr += '<w:sz w:val="%d"/><w:szCs w:val="%d"/>' % (round(size * 2), round(size * 2))
+    return '<w:r><w:rPr>%s</w:rPr><w:t xml:space="preserve">%s</w:t></w:r>' % (rpr, _esc(text))
+
+
+def _p(text, size=12, bold=False, east="宋体", indent=True, align=None, space_before=0, space_after=0, line=1.5, color=None):
+    ppr = '<w:spacing w:before="%d" w:after="%d" w:line="%d" w:lineRule="auto"/>' % (space_before * 20, space_after * 20, round(line * 240))
     if indent:
-        pf.first_line_indent = Pt(size * 2)
-    if align is not None:
-        p.alignment = align
-    _font(p.add_run(text), size, bold, east)
-    return p
+        ppr += '<w:ind w:firstLine="%d"/>' % round(size * 2 * 20)
+    if align:
+        ppr += '<w:jc w:val="%s"/>' % align
+    return "<w:p><w:pPr>%s</w:pPr>%s</w:p>" % (ppr, _run(text, size, bold, east, color=color) if text else "")
 
 
-def _three_line(table):
+def _tbl(caption, header, rows, widths_cm):
     """三线表：顶线、底线 1.5 磅，表头下线 0.75 磅，无竖线。"""
-    from docx.oxml.ns import qn
-    tbl = table._tbl
-    tblPr = tbl.tblPr
-    borders = tblPr.makeelement(qn("w:tblBorders"), {})
-    for edge, sz in (("top", "12"), ("bottom", "12"), ("left", None), ("right", None), ("insideH", None), ("insideV", None)):
-        el = borders.makeelement(qn("w:" + edge), {})
-        if sz:
-            el.set(qn("w:val"), "single")
-            el.set(qn("w:sz"), sz)
-            el.set(qn("w:color"), "000000")
-        else:
-            el.set(qn("w:val"), "nil")
-        borders.append(el)
-    old = tblPr.find(qn("w:tblBorders"))
-    if old is not None:
-        tblPr.remove(old)
-    # 按 OOXML 架构顺序插在 shd/tblLayout/tblCellMar/tblLook 之前
-    after = next((tblPr.find(qn("w:" + t)) for t in ("shd", "tblLayout", "tblCellMar", "tblLook") if tblPr.find(qn("w:" + t)) is not None), None)
-    if after is not None:
-        after.addprevious(borders)
-    else:
-        tblPr.append(borders)
-    for cell in table.rows[0].cells:
-        tcPr = cell._tc.get_or_add_tcPr()
-        tcb = tcPr.makeelement(qn("w:tcBorders"), {})
-        b = tcb.makeelement(qn("w:bottom"), {qn("w:val"): "single", qn("w:sz"): "6", qn("w:color"): "000000"})
-        tcb.append(b)
-        tcPr.append(tcb)
-
-
-def _table(doc, caption, header, rows, widths_cm):
-    from docx.enum.table import WD_TABLE_ALIGNMENT
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
-    from docx.shared import Cm, Pt
-    _para(doc, caption, 10.5, True, "黑体", indent=False, align=WD_ALIGN_PARAGRAPH.CENTER, space_before=6, line=1.0)
-    t = doc.add_table(rows=1 + len(rows), cols=len(header))
-    t.alignment = WD_TABLE_ALIGNMENT.CENTER
-    t.autofit = False
-    for ci, w in enumerate(widths_cm):
-        t.columns[ci].width = Cm(w)
+    out = _p(caption, 10.5, True, "黑体", indent=False, align="center", space_before=6, line=1.0)
+    tw = [round(w * _CM) for w in widths_cm]
+    out += ('<w:tbl><w:tblPr><w:tblW w:w="%d" w:type="dxa"/><w:jc w:val="center"/>'
+            '<w:tblBorders><w:top w:val="single" w:sz="12" w:space="0" w:color="000000"/><w:left w:val="nil"/>'
+            '<w:bottom w:val="single" w:sz="12" w:space="0" w:color="000000"/><w:right w:val="nil"/>'
+            '<w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders><w:tblLayout w:type="fixed"/>'
+            '<w:tblCellMar><w:left w:w="57" w:type="dxa"/><w:right w:w="57" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>%s</w:tblGrid>'
+            % (sum(tw), "".join('<w:gridCol w:w="%d"/>' % w for w in tw)))
     for ri, vals in enumerate([header] + rows):
+        out += "<w:tr>%s" % ("<w:trPr><w:tblHeader/></w:trPr>" if ri == 0 else "")
         for ci, v in enumerate(vals):
-            c = t.cell(ri, ci)
-            c.width = Cm(widths_cm[ci])
-            p = c.paragraphs[0]
-            p.paragraph_format.line_spacing = 1.0
-            p.paragraph_format.space_after = Pt(0)
+            tcpr = '<w:tcW w:w="%d" w:type="dxa"/>' % tw[ci]
+            if ri == 0:
+                tcpr += '<w:tcBorders><w:bottom w:val="single" w:sz="6" w:space="0" w:color="000000"/></w:tcBorders>'
+            tcpr += '<w:vAlign w:val="center"/>'
+            ppr = '<w:spacing w:before="0" w:after="0" w:line="240" w:lineRule="auto"/>'
             if ri == 0 or ci == 0:
-                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            _font(p.add_run(str(v)), 10.5, ri == 0)
-    _three_line(t)
-    return t
+                ppr += '<w:jc w:val="center"/>'
+            out += "<w:tc><w:tcPr>%s</w:tcPr><w:p><w:pPr>%s</w:pPr>%s</w:p></w:tc>" % (tcpr, ppr, _run(str(v), 10.5, ri == 0))
+        out += "</w:tr>"
+    return out + "</w:tbl>"
 
 
-def _module_docx(doc, rep, tno):
-    from docx.shared import Pt
-    _para(doc, rep["title"], 14, True, "黑体", indent=False, space_before=12, space_after=6)
-    _para(doc, "1. 计算依据", 12, True, indent=False)
-    _para(doc, "依据%s%s。" % (STD, rep["basis"].strip()))
-    _para(doc, "2. 参数取值", 12, True, indent=False)
+def _module_docx(rep, tno):
+    b = _p(rep["title"], 14, True, "黑体", indent=False, space_before=12, space_after=6)
+    b += _p("1. 计算依据", 12, True, indent=False)
+    b += _p("依据%s%s。" % (STD, rep["basis"].strip()))
+    b += _p("2. 参数取值", 12, True, indent=False)
     name = rep["title"].split("）", 1)[-1]
     if name.endswith("计算"):
         name = name[:-2]
-    _table(doc, "表%d　%s参数取值" % (tno, name), ["序号", "参数", "取值", "单位", "取值依据／来源"],
-           [[str(i), p[0], p[1], p[2] or "—", p[3]] for i, p in enumerate(rep["params"], 1)], [1.3, 3.8, 2.8, 1.6, 6.5])
-    _para(doc, "3. 计算过程", 12, True, indent=False, space_before=6)
-    _table(doc, "表%d　%s计算过程" % (tno + 1, name), ["序号", "计算项目", "公式及依据", "代入数值", "计算结果"],
-           [[str(i), s[0], s[1], s[2], s[3]] for i, s in enumerate(rep["steps"], 1)], [1.3, 2.8, 4.9, 4.6, 2.4])
-    _para(doc, "4. 计算结果", 12, True, indent=False, space_before=6)
+    b += _tbl("表%d　%s参数取值" % (tno, name), ["序号", "参数", "取值", "单位", "取值依据／来源"],
+              [[str(i), p[0], p[1], p[2] or "—", p[3]] for i, p in enumerate(rep["params"], 1)], [1.3, 3.8, 2.8, 1.6, 6.5])
+    b += _p("3. 计算过程", 12, True, indent=False, space_before=6)
+    b += _tbl("表%d　%s计算过程" % (tno + 1, name), ["序号", "计算项目", "公式及依据", "代入数值", "计算结果"],
+              [[str(i), s[0], s[1], s[2], s[3]] for i, s in enumerate(rep["steps"], 1)], [1.3, 2.8, 4.9, 4.6, 2.4])
+    b += _p("4. 计算结果", 12, True, indent=False, space_before=6)
     tno += 2
     for cap, head, rows, widths in rep.get("tables", []):
-        _table(doc, "表%d　%s" % (tno, cap), head, rows, widths)
+        b += _tbl("表%d　%s" % (tno, cap), head, rows, widths) + _p("", 6, indent=False, line=1.0)
         tno += 1
-        _para(doc, "", 6, indent=False, line=1.0)
     for r in rep["results"]:
-        _para(doc, r)
+        b += _p(r)
     if rep["warn"]:
-        _para(doc, "5. 编制提示（核对后删除）", 12, True, indent=False)
+        b += _p("5. 编制提示（核对后删除）", 12, True, indent=False)
         for i, w in enumerate(rep["warn"], 1):
-            p = _para(doc, "（%d）%s" % (i, w), 10.5)
-            for run in p.runs:
-                from docx.shared import RGBColor
-                run.font.color.rgb = RGBColor(0x8A, 0x4B, 0x00)
-    return tno
+            b += _p("（%d）%s" % (i, w), 10.5, color="8A4B00")
+    return b, tno
+
+
+_CT = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+       '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+       '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+       '<Default Extension="xml" ContentType="application/xml"/>'
+       '<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>'
+       '<Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>'
+       '</Types>')
+_RELS = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+         '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+         '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>'
+         '</Relationships>')
+_DRELS = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+          '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+          '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+          '</Relationships>')
+_W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"'
+_STYLES = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles %s><w:docDefaults><w:rPrDefault><w:rPr>'
+           '<w:rFonts w:ascii="Times New Roman" w:hAnsi="Times New Roman" w:eastAsia="宋体" w:cs="Times New Roman"/>'
+           '<w:sz w:val="24"/><w:szCs w:val="24"/><w:lang w:val="en-US" w:eastAsia="zh-CN"/></w:rPr></w:rPrDefault>'
+           '<w:pPrDefault><w:pPr><w:spacing w:after="0"/></w:pPr></w:pPrDefault></w:docDefaults>'
+           '<w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style>'
+           '<w:style w:type="table" w:default="1" w:styleId="TableNormal"><w:name w:val="Normal Table"/><w:tblPr>'
+           '<w:tblCellMar><w:left w:w="108" w:type="dxa"/><w:right w:w="108" w:type="dxa"/></w:tblCellMar></w:tblPr></w:style>'
+           '</w:styles>') % _W
 
 
 def to_docx(reports, path, doc_title="环境风险计算书"):
-    from docx import Document
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
-    from docx.shared import Cm
-    doc = Document()
-    sec = doc.sections[0]
-    sec.page_width, sec.page_height = Cm(21.0), Cm(29.7)
-    sec.left_margin = sec.right_margin = Cm(2.5)
-    sec.top_margin = sec.bottom_margin = Cm(2.5)
-    _para(doc, doc_title, 16, True, "黑体", indent=False, align=WD_ALIGN_PARAGRAPH.CENTER, space_after=6)
-    _para(doc, "计算依据：%s；本计算书由 HJ 169 风险计算器生成，参数来源逐项列明，可复现。" % STD, 10.5, indent=False,
-          align=WD_ALIGN_PARAGRAPH.CENTER, space_after=6)
+    import zipfile
+    body = _p(doc_title, 16, True, "黑体", indent=False, align="center", space_after=6)
+    body += _p("计算依据：%s；本计算书由 HJ 169 风险计算器生成，参数来源逐项列明，可复现。" % STD, 10.5, indent=False, align="center", space_after=6)
     tno = 1
     for rep in reports:
-        tno = _module_docx(doc, rep, tno)
-    doc.save(path)
+        b, tno = _module_docx(rep, tno)
+        body += b
+    sect = ('<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1417" w:right="1417" w:bottom="1417" w:left="1417"'
+            ' w:header="851" w:footer="992" w:gutter="0"/></w:sectPr>')
+    doc = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document %s><w:body>%s%s</w:body></w:document>' % (_W, body, sect)
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("[Content_Types].xml", _CT)
+        z.writestr("_rels/.rels", _RELS)
+        z.writestr("word/_rels/document.xml.rels", _DRELS)
+        z.writestr("word/styles.xml", _STYLES)
+        z.writestr("word/document.xml", doc)
 
 
 # ---------------------------------------------------------------- Excel

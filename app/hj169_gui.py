@@ -1599,15 +1599,16 @@ def selftest(path):
         out.append("计算书 %s：%s" % (k, "已生成" if ok else "缺失"))
     tmp = os.path.dirname(os.path.abspath(path))
     try:
-        from docx import Document
+        import zipfile
         from openpyxl import load_workbook
         fd, fx = os.path.join(tmp, "sample_report.docx"), os.path.join(tmp, "sample_report.xlsx")
         app.write_reports(app.ordered(), fd, "docx")
         app.write_reports(app.ordered(), fx, "xlsx")
-        d = Document(fd)
+        xml = zipfile.ZipFile(fd).read("word/document.xml").decode("utf-8")
+        ntab, npar = xml.count("<w:tbl>"), xml.count("<w:p>")
         wb = load_workbook(fx)
-        out.append("导出 Word：段落 %d，表格 %d；导出 Excel：工作表 %s" % (len(d.paragraphs), len(d.tables), "、".join(wb.sheetnames)))
-        bad += len(d.tables) != 11 or len(wb.sheetnames) != 6
+        out.append("导出 Word：段落 %d，表格 %d；导出 Excel：工作表 %s" % (npar, ntab, "、".join(wb.sheetnames)))
+        bad += ntab != 11 or len(wb.sheetnames) != 6
     except Exception as ex:
         bad += 1
         out.append("导出失败：%r" % ex)

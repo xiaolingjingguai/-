@@ -12,6 +12,14 @@
 STD = "《建设项目环境风险评价技术导则》（HJ 169-2018）"
 
 
+def _ver():
+    try:
+        import hj169calc
+        return hj169calc.VERSION
+    except ImportError:
+        return ""
+
+
 def make_report(title, basis, params, steps, results, warn, tables=None):
     return {"title": title, "basis": basis, "params": [[str(x) for x in p] for p in params],
             "steps": [tuple(str(x) for x in s) for s in steps], "results": list(results), "warn": list(warn),
@@ -141,7 +149,7 @@ _STYLES = ('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles %s>
 def to_docx(reports, path, doc_title="环境风险计算书"):
     import zipfile
     body = _p(doc_title, 16, True, "黑体", indent=False, align="center", space_after=6)
-    body += _p("计算依据：%s；本计算书由 HJ 169 风险计算器生成，参数来源逐项列明，可复现。" % STD, 10.5, indent=False, align="center", space_after=6)
+    body += _p("计算依据：%s；本计算书由 HJ 169 风险计算器 %s 版生成，参数来源逐项列明，可复现。" % (STD, _ver()), 10.5, indent=False, align="center", space_after=6)
     tno = 1
     for rep in reports:
         b, tno = _module_docx(rep, tno)
@@ -224,6 +232,8 @@ def to_xlsx(reports, path):
         summary.append([rep["title"], "；".join(rep["results"])])
         for i, c in enumerate(summary[summary.max_row]):
             c.font, c.border, c.alignment = base, border, wrap
+    summary.append([])
+    summary.append(["生成软件", "HJ 169 风险计算器 %s 版" % _ver()])
     summary.column_dimensions["A"].width = 30
     summary.column_dimensions["B"].width = 100
     wb.save(path)

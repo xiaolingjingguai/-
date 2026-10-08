@@ -16,7 +16,7 @@ import report_export as RX
 import selfcheck
 
 APP_NAME = "HJ 169 风险计算器"
-APP_VER = "1.0（2026-10-07）"
+APP_VER = "%s（%s）" % (H.VERSION, H.VERSION_DATE)
 STD = "《建设项目环境风险评价技术导则》（HJ 169-2018）"
 fmt = H.fmt
 
@@ -1666,6 +1666,8 @@ def selftest(path):
     root = tk.Tk()
     app = App(root)
     root.update()
+    out.append("版本：%s；窗口标题：%s" % (APP_VER, root.title()))
+    bad += H.VERSION not in root.title()
     out.append("物质库条目：%d" % len(app.subs))
     nh3 = next(i for i, s in enumerate(app.subs) if s["cas"] == "7664-41-7")
     app.tree.selection_set(str(nh3)) if app.tree.exists(str(nh3)) else None

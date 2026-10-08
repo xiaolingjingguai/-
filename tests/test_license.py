@@ -77,6 +77,23 @@ def run():
     ok, _, reason = verify(json.dumps(d, ensure_ascii=False), code1)
     check("篡改内容拒绝", (not ok) and "签名" in reason)
 
+    # 试用期：首次约 30 分钟，到期后为 0（用临时 LOCALAPPDATA 隔离，_now 注入时间）
+    import time as _t
+    import tempfile
+    td = tempfile.mkdtemp()
+    old = os.environ.get("LOCALAPPDATA")
+    os.environ["LOCALAPPDATA"] = td
+    try:
+        r1 = LV.trial_remaining_seconds()
+        check("试用首次约30分钟", 1700 <= r1 <= LV.TRIAL_MINUTES * 60)
+        r2 = LV.trial_remaining_seconds(_now=_t.time() + LV.TRIAL_MINUTES * 60 + 120)
+        check("试用到期后为0", r2 == 0)
+    finally:
+        if old is None:
+            os.environ.pop("LOCALAPPDATA", None)
+        else:
+            os.environ["LOCALAPPDATA"] = old
+
     out.append("LICENSE %s" % ("PASS" if not bad else "FAIL"))
     return bad, out
 

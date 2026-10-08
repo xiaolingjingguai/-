@@ -4,7 +4,8 @@
 1. machine_code()  计算本机机器码（指纹），供用户发给作者申请授权。
 2. check_license() 读取程序目录下的 license.key，用内置公钥验证签名、核对机器码与
    有效期，返回是否放行。
-3. gate()         供主程序在启动时调用：无有效许可证时弹窗显示机器码与申请说明并拒绝运行。
+3. license_state()/gate()  供主程序启动时调用：已授权直接运行；未授权则给予首次 TRIAL_MINUTES
+   分钟试用，到时弹窗显示机器码与申请说明并锁定；试用用完后启动即要求授权。
 
 设计说明
 --------
@@ -23,6 +24,7 @@ import hashlib
 import json
 import os
 import sys
+import time
 
 import _ed25519_pure as _ed
 
@@ -209,14 +211,113 @@ def check_license(this_machine=None):
     return verify_license_bytes(raw, this_machine)
 
 
+# ====================================================================== 试用期
+# 未授权时允许首次试用一段时间（自首次运行起累计），到时弹窗要求授权。
+# 首次运行时刻记录在用户目录文件与注册表（HKCU）两处，互为备份、取最早值；
+# 删除/回拨时钟仅属“轻量防护”，无法完全杜绝重置（专业绕过请配合代码混淆）。
+TRIAL_MINUTES = 30
+_TRIAL_REG_PATH = r"Software\HJ169Calc"
+_TRIAL_REG_NAME = "T1"
+
+
+def _trial_file():
+    base = (os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+            or os.path.expanduser("~"))
+    d = os.path.join(base, "HJ169Calc")
+    try:
+        os.makedirs(d, exist_ok=True)
+    except Exception:
+        pass
+    return os.path.join(d, "trial.dat")
+
+
+def _read_file_start():
+    try:
+        with open(_trial_file(), "r") as f:
+            return float(f.read().strip())
+    except Exception:
+        return None
+
+
+def _write_file_start(ts):
+    try:
+        with open(_trial_file(), "w") as f:
+            f.write(repr(float(ts)))
+    except Exception:
+        pass
+
+
+def _read_reg_start():
+    if sys.platform != "win32":
+        return None
+    try:
+        import winreg
+        k = winreg.OpenKey(winreg.HKEY_CURRENT_USER, _TRIAL_REG_PATH)
+        val, _ = winreg.QueryValueEx(k, _TRIAL_REG_NAME)
+        winreg.CloseKey(k)
+        return float(val)
+    except Exception:
+        return None
+
+
+def _write_reg_start(ts):
+    if sys.platform != "win32":
+        return
+    try:
+        import winreg
+        k = winreg.CreateKey(winreg.HKEY_CURRENT_USER, _TRIAL_REG_PATH)
+        winreg.SetValueEx(k, _TRIAL_REG_NAME, 0, winreg.REG_SZ, repr(float(ts)))
+        winreg.CloseKey(k)
+    except Exception:
+        pass
+
+
+def trial_remaining_seconds(_now=None):
+    """返回未授权状态下的试用剩余秒数（0 表示试用已用完）。
+    首次调用会记录首次运行时刻。_now 仅供测试注入当前时间。"""
+    now = time.time() if _now is None else _now
+    starts = [s for s in (_read_file_start(), _read_reg_start()) if s is not None]
+    if starts:
+        start = min(starts)
+    else:
+        start = now  # 首次运行：以当前时刻为试用起点
+    # 回写两处，互为备份（删除其一可由另一处恢复）
+    _write_file_start(start)
+    _write_reg_start(start)
+    if start > now:  # 时钟被回拨到首次运行之前：按已到期处理
+        return 0
+    remaining = TRIAL_MINUTES * 60 - (now - start)
+    return max(0, int(remaining))
+
+
+def license_state():
+    """返回 (state, payload, reason)：
+    - ("licensed", info, "ok")      已授权
+    - ("trial", 剩余秒数, reason)    未授权但仍在试用期内
+    - ("expired", None, reason)      未授权且试用已用完
+    """
+    ok, info, reason = check_license()
+    if ok:
+        return "licensed", info, reason
+    rem = trial_remaining_seconds()
+    if rem > 0:
+        return "trial", rem, reason
+    return "expired", None, reason
+
+
 # ====================================================================== 启动门禁
 def gate(parent=None):
     """主程序启动时调用。有效则返回 info（dict）；无效则弹窗显示机器码与申请说明后返回 None。"""
     ok, info, reason = check_license()
     if ok:
         return info
-    _show_dialog(reason, parent)
+    show_gate(parent, reason)
     return None
+
+
+def show_gate(parent=None, reason=None):
+    """显示授权窗口。parent 为空时自建窗口并进入事件循环；否则作为模态子窗显示并阻塞至关闭。"""
+    _show_dialog(reason or "本软件需授权后使用", parent)
 
 
 def _show_dialog(reason, parent=None):
@@ -268,6 +369,16 @@ def _show_dialog(reason, parent=None):
         pass
     if owned:
         root.mainloop()
+    else:
+        # 作为模态子窗：置顶、独占输入，阻塞至用户关闭
+        try:
+            root.transient(parent)
+            root.grab_set()
+            root.attributes("-topmost", True)
+            root.protocol("WM_DELETE_WINDOW", root.destroy)
+            root.wait_window()
+        except Exception:
+            pass
 
 
 # 命令行辅助：打印机器码（供打包流水线/用户快速获取），或本地校验

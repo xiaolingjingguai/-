@@ -17,7 +17,7 @@ import selfcheck
 import license_verify
 
 APP_NAME = "HJ 169 风险计算器"
-APP_VER = "1.0（2026-10-07）"
+APP_VER = "%s（%s）" % (H.VERSION, H.VERSION_DATE)
 STD = "《建设项目环境风险评价技术导则》（HJ 169-2018）"
 fmt = H.fmt
 
@@ -79,6 +79,7 @@ class Form:
         if ref:
             ttk.Label(f, text="  " + ref, style="Ref.TLabel").pack(side="left")
         self.r += 1
+        return f
 
     def add(self, key, label, unit="", default="", src=""):
         lab = ttk.Label(self.parent, text=label, wraplength=230, justify="left")
@@ -1203,24 +1204,42 @@ class App:
         return not L.errs
 
     # -------------------------------------------------------------- 液池蒸发
+    EVAP_NAME = {"flash": "闪蒸", "heat": "热量蒸发", "mass": "质量蒸发"}
+    EVAP_KEYS = {"flash": ("Cp", "Hv", "t1"), "heat": ("H", "surf", "t2"), "mass": ("stab", "u", "rmode", "r", "p", "M", "t3")}
+
     def tab_evap(self):
         pw, f = self.split("液池蒸发")
         E = self.evap = Form(f, lambda: (self.calc_evap(), self.calc_model()))
-        E.head("闪蒸", "F.1.4.1 式(F.9)(F.10)；示例：液氨泄漏，水泥地面围堰 100 m²")
+        E.head("蒸发源与计算内容", "F.1.4；示例：液氨泄漏，水泥地面围堰 100 m²")
         E.combo("qlmode", "物质泄漏速率 Q_L 来源", [("leak", "取“泄漏速率”页计算结果"), ("manual", "手工输入")])
         E.add("QL", "物质泄漏速率 Q_L（手工）", "kg/s", 1.559)
+        E.combo("pmode", "参与计算的蒸发项", [("auto", "按附录F.1.4 适用条件自动判定（推荐）"), ("manual", "手动勾选")])
+        cf = ttk.Frame(f)
+        cf.grid(row=E.r, column=0, columnspan=4, sticky="w", pady=(0, 2))
+        E.r += 1
+        self.evap_on = {k: tk.BooleanVar(value=True) for k in H.EVAP_PARTS}
+        self.evap_cb = {}
+        for k, t in (("flash", "闪蒸 Q₁（F.1.4.1）"), ("heat", "热量蒸发 Q₂（F.1.4.2）"), ("mass", "质量蒸发 Q₃（F.1.4.3）")):
+            cb = ttk.Checkbutton(cf, text=t, variable=self.evap_on[k], command=lambda: (self.calc_evap(), self.calc_model()))
+            cb.pack(side="left", padx=(0, 14))
+            self.evap_cb[k] = cb
+        self.evap_auto_lbl = ttk.Label(f, text="", style="Src.TLabel", wraplength=600, justify="left")
+        self.evap_auto_lbl.grid(row=E.r, column=0, columnspan=4, sticky="w", pady=(0, 4))
+        E.r += 1
         E.add("TT", "储存温度 T_T", "K", 293.15)
         E.add("Tb", "泄漏液体沸点 T_b", "K", 239.85, "氨常压沸点（CRC 手册 95 版）")
+        E.add("T0", "环境温度 T₀（最不利气象 25 ℃，9.1.1.4）", "K", 298.15)
+        E.add("S", "液池面积 S（以围堰内面积为上限，8.2.2.1）", "m²", 100)
+        self.evap_heads = {}
+        self.evap_heads["flash"] = E.head("闪蒸", "F.1.4.1 式(F.9)(F.10)")
         E.add("Cp", "液体定压比热容 C_p", "J/(kg·K)", 4651, "氨 20 ℃ 液体（Perry 手册 8 版表2-153）")
         E.add("Hv", "蒸发热 H_v", "J/kg", 1369895, "氨正常沸点汽化热（CRC 手册）")
         E.add("t1", "闪蒸蒸发时间 t₁", "s", 600)
-        E.head("热量蒸发", "F.1.4.2 式(F.11) 表F.2")
-        E.add("T0", "环境温度 T₀（最不利气象 25 ℃，9.1.1.4）", "K", 298.15)
+        self.evap_heads["heat"] = E.head("热量蒸发", "F.1.4.2 式(F.11) 表F.2")
         E.add("H", "液体汽化热 H", "J/kg", 1369895, "氨正常沸点汽化热（CRC 手册）")
         E.combo("surf", "地面情况（表F.2）", [(k, "%s　λ=%s W/(m·K)，α=%s m²/s" % (v[0], v[1], fmt(v[2], 3))) for k, v in H.SURF.items()])
-        E.add("S", "液池面积 S（以围堰内面积为上限，8.2.2.1）", "m²", 100)
         E.add("t2", "热量蒸发时间 t₂（式中 t）", "s", 600)
-        E.head("质量蒸发", "F.1.4.3 式(F.12) 表F.3")
+        self.evap_heads["mass"] = E.head("质量蒸发", "F.1.4.3 式(F.12) 表F.3")
         E.combo("stab", "大气稳定度（表F.3）", [(k, "%s　n=%s，α=%s" % (v[0], v[1], fmt(v[2]))) for k, v in H.STAB.items()], 2)
         E.add("u", "风速 u", "m/s", 1.5)
         E.combo("rmode", "液池半径 r", [("auto", "按围堰等效半径 r = √(S/π)"), ("manual", "手工输入")])
@@ -1231,11 +1250,39 @@ class App:
         self.evap_res = ResultPane(pw, self, "evap")
         pw.add(self.evap_res, weight=2)
 
+    def evap_parts(self):
+        """确定参与计算的蒸发项，并同步勾选框状态与各项输入的显示。"""
+        E = self.evap
+        auto = E.get("pmode") == "auto"
+        if auto:
+            try:
+                parts = H.evap_auto_parts(E.get("TT"), E.get("Tb"), E.get("T0"))
+            except ValueError:
+                parts = list(H.EVAP_PARTS)
+            for k in H.EVAP_PARTS:
+                self.evap_on[k].set(k in parts)
+            why = ["闪蒸：T_T %s T_b，%s" % ("＞" if "flash" in parts else "≤", "计" if "flash" in parts else "不计"),
+                   "热量蒸发：T₀ %s T_b，%s" % ("＞" if "heat" in parts else "≤", "计" if "heat" in parts else "不计"), "质量蒸发：计"]
+            self.evap_auto_lbl.configure(text="自动判定（F.1.4）：" + "；".join(why) + "。如需调整请改为“手动勾选”。")
+        else:
+            parts = [k for k in H.EVAP_PARTS if self.evap_on[k].get()]
+            self.evap_auto_lbl.configure(text="手动勾选：未勾选的蒸发项不参与计算，计算书中也不列出。")
+        for k, cb in self.evap_cb.items():
+            cb.configure(state="disabled" if auto else "normal")
+        for k in H.EVAP_PARTS:
+            on = k in parts
+            (self.evap_heads[k].grid if on else self.evap_heads[k].grid_remove)()
+            for key in self.EVAP_KEYS[k]:
+                E.show(key, on)
+        E.show("r", "mass" in parts and E.get("rmode") == "manual")
+        E.show("S", "heat" in parts or ("mass" in parts and E.get("rmode") == "auto"))
+        return parts
+
     def calc_evap(self):
         E = self.evap
         E.show("QL", E.get("qlmode") == "manual")
-        E.show("r", E.get("rmode") == "manual")
-        if not self.check_evap():
+        parts = self.evap_parts()
+        if not self.check_evap(parts):
             self.last_evap = None
             self.evap_res.error(E.errs, E.warns)
             return
@@ -1252,32 +1299,47 @@ class App:
             o = dict(QL=QL, Cp=E.get("Cp"), TT=E.get("TT"), Tb=E.get("Tb"), Hv=E.get("Hv"), H=E.get("H"), T0=E.get("T0"), S=S,
                      surface=E.get("surf"), t1=E.get("t1"), t2=E.get("t2"), t3=E.get("t3"), stab=E.get("stab"), p=E.get("p"),
                      M=E.get("M"), u=E.get("u"), r=r)
-            res = H.evaporation(**o)
+            res = H.evaporation(parts=parts, **o)
         except (ValueError, ZeroDivisionError) as ex:
             self.evap_res.error("参数不完整或格式有误：%s" % ex)
             return
         self.last_evap = (res, r)
         res["warn"] = E.warns + res["warn"]
-        if o["t2"] < 900 or o["t3"] < 900:
+        if ("heat" in parts and o["t2"] < 900) or ("mass" in parts and o["t3"] < 900):
             res["warn"].append("8.2.2.1：蒸发时间一般可按 15～30 min 计，请核对 t₂、t₃ 取值依据。")
-        res["warn"].append("式(F.11) 中热量蒸发速率随时间 t 递减，本程序按导则式(F.13) 以 t = t₂ 时的 Q₂ 乘以 t₂ 计算，与导则写法一致。")
-        params = [["物质泄漏速率 Q_L", fmt(QL), "kg/s", qlsrc], ["储存温度 T_T", fmt(o["TT"]), "K", E.source("TT", "设计工况")], ["沸点 T_b", fmt(o["Tb"]), "K", E.source("Tb")],
+        if "heat" in parts:
+            res["warn"].append("式(F.11) 中热量蒸发速率随时间 t 递减，本程序按导则式(F.13) 以 t = t₂ 时的 Q₂ 乘以 t₂ 计算，与导则写法一致。")
+        mode = "按附录F.1.4 适用条件自动判定" if E.get("pmode") == "auto" else "工程师手动选定"
+        pnames = "、".join(self.EVAP_NAME[k] for k in parts)
+        params = [["参与计算的蒸发项", pnames, "", mode]] + [["物质泄漏速率 Q_L", fmt(QL), "kg/s", qlsrc], ["储存温度 T_T", fmt(o["TT"]), "K", E.source("TT", "设计工况")], ["沸点 T_b", fmt(o["Tb"]), "K", E.source("Tb")],
                   ["液体定压比热容 C_p", fmt(o["Cp"]), "J/(kg·K)", E.source("Cp")], ["蒸发热 H_v", fmt(o["Hv"]), "J/kg", E.source("Hv")], ["汽化热 H", fmt(o["H"]), "J/kg", E.source("H")],
                   ["环境温度 T₀", fmt(o["T0"]), "K", E.source("T0", "9.1.1.4 最不利气象 25 ℃ 或当地常见气象")], ["地面情况", H.SURF[o["surface"]][0], "", "表F.2"],
                   ["液池面积 S", fmt(S), "m²", E.source("S", "围堰内面积（8.2.2.1）")], ["大气稳定度", H.STAB[o["stab"]][0], "", "表F.3"], ["风速 u", fmt(o["u"]), "m/s", E.source("u", "9.1.1.4")],
                   ["液池半径 r", fmt(r), "m", rsrc], ["液体表面蒸气压 p", fmt(o["p"]), "Pa", E.source("p")], ["摩尔质量 M", fmt(o["M"], 6), "kg/mol", E.source("M")],
-                  ["时间 t₁／t₂／t₃", "%s／%s／%s" % (fmt(o["t1"]), fmt(o["t2"]), fmt(o["t3"])), "s", "8.2.2.1"]]
-        summary = ["Q₁ = %s　Q₂ = %s　Q₃ = %s kg/s" % (fmt(res["Q1"]), fmt(res["Q2"]), fmt(res["Q3"])),
-                   "闪蒸比例 F_v = %s　蒸发总量 W_p = %s kg" % (fmt(res["Fv"]), fmt(res["v"]))]
+                  ["闪蒸蒸发时间 t₁", fmt(o["t1"]), "s", "8.2.2.1"], ["热量蒸发时间 t₂", fmt(o["t2"]), "s", "8.2.2.1"],
+                  ["从泄漏到全部清理完毕的时间 t₃", fmt(o["t3"]), "s", "8.2.2.1"]]
+        need = {"液体定压比热容 C_p": "flash", "蒸发热 H_v": "flash", "闪蒸蒸发时间 t₁": "flash",
+                "汽化热 H": "heat", "地面情况": "heat", "热量蒸发时间 t₂": "heat",
+                "大气稳定度": "mass", "风速 u": "mass", "液池半径 r": "mass", "液体表面蒸气压 p": "mass", "摩尔质量 M": "mass", "从泄漏到全部清理完毕的时间 t₃": "mass"}
+        params = [x for x in params if need.get(x[0]) is None or need[x[0]] in parts]
+        if "heat" not in parts and not ("mass" in parts and E.get("rmode") == "auto"):
+            params = [x for x in params if x[0] != "液池面积 S"]
+        qs = [("Q₁", "闪蒸蒸发速率", res["Q1"], "flash"), ("Q₂", "热量蒸发速率", res["Q2"], "heat"), ("Q₃", "质量蒸发速率", res["Q3"], "mass")]
+        qs = [q for q in qs if q[3] in parts]
+        summary = ["　".join("%s = %s" % (q[0], fmt(q[2])) for q in qs) + " kg/s",
+                   ("闪蒸比例 F_v = %s　" % fmt(res["Fv"]) if "flash" in parts else "") + "蒸发总量 W_p = %s kg" % fmt(res["v"]),
+                   "参与计算：%s（%s）" % (pnames, mode)]
         sheet = RX.make_report("（三）泄漏液体蒸发量计算", " 附录F.1.4 式(F.9)～(F.13)、表F.2、表F.3", params, res["steps"],
-                           ["闪蒸蒸发速率 Q₁ = %s kg/s，热量蒸发速率 Q₂ = %s kg/s，质量蒸发速率 Q₃ = %s kg/s；液体蒸发总量 W_p = %s kg。"
-                            % (fmt(res["Q1"]), fmt(res["Q2"]), fmt(res["Q3"]), fmt(res["v"]))], res["warn"])
+                           ["本次计算考虑%s（%s）：%s；液体蒸发总量 W_p = %s kg。"
+                            % (pnames, mode, "，".join("%s %s = %s kg/s" % (q[1], q[0], fmt(q[2])) for q in qs), fmt(res["v"]))], res["warn"])
         self.evap_res.show(summary, res["warn"], res["steps"], sheet)
 
-    def check_evap(self):
-        """液池蒸发页输入校验：Q_L 来源须为液体或两相流泄漏，蒸气压不超过环境压力，单位范围。"""
+    def check_evap(self, parts):
+        """液池蒸发页输入校验：Q_L 来源须为液体或两相流泄漏，蒸气压不超过环境压力，单位范围；只校验参与计算的蒸发项。"""
         E = self.evap
         E.begin_check()
+        if not parts:
+            E.error("尚未勾选任何蒸发项，请至少勾选一项，或改为“按附录F.1.4 适用条件自动判定”。", "pmode")
         if E.get("qlmode") == "leak":
             if self.last_leak is None:
                 E.error("“泄漏速率”页尚无有效结果（该页输入有误或未计算），请先修正该页，或将 Q_L 来源改为手工输入。", "qlmode")
@@ -1289,19 +1351,37 @@ class App:
         else:
             E.chk("QL", pos=True, whi=1000, hint="泄漏速率单位为 kg/s（是否误填 kg/h 或 t？）。")
         TT, Tb, T0 = E.temp("TT"), E.temp("Tb"), E.temp("T0")
-        E.chk("Cp", pos=True, wlo=500, whi=10000, hint="比热容单位为 J/(kg·K)（是否误填 kJ/(kg·K)？）。")
-        E.chk("Hv", pos=True, wlo=5e4, whi=5e6, hint="蒸发热单位为 J/kg（是否误填 kJ/kg 或 J/mol？）。")
-        E.chk("H", pos=True, wlo=5e4, whi=5e6, hint="汽化热单位为 J/kg（是否误填 kJ/kg 或 J/mol？）。")
-        E.chk("S", pos=True, whi=1e5, hint="液池面积单位为 m²，以围堰内面积为上限（8.2.2.1）。")
-        for k in ("t1", "t2", "t3"):
-            E.chk(k, pos=True, whi=7200, hint="8.2.2.1：蒸发时间一般按 15～30 min 计。")
-        E.chk("u", pos=True, wlo=0.5, whi=20, hint="风速单位为 m/s；最不利气象取 1.5 m/s（9.1.1.4）。")
-        if E.get("rmode") == "manual":
-            E.chk("r", pos=True, whi=200, hint="液池半径单位为 m。")
-        p = E.chk("p", pos=True, hi=101325 * 1.02,
-                  hi_msg="液体表面蒸气压 p 不应高于环境压力（约 101325 Pa）；敞开液池沸腾时取环境压力。请核对单位（Pa）。")
-        E.chk("M", pos=True, wlo=0.002, whi=1.0, hint="摩尔质量单位为 kg/mol（是否误填 g/mol？）。")
+        tmsg = "8.2.2.1：蒸发时间一般按 15～30 min 计。"
+        if "flash" in parts:
+            E.chk("Cp", pos=True, wlo=500, whi=10000, hint="比热容单位为 J/(kg·K)（是否误填 kJ/(kg·K)？）。")
+            E.chk("Hv", pos=True, wlo=5e4, whi=5e6, hint="蒸发热单位为 J/kg（是否误填 kJ/kg 或 J/mol？）。")
+            E.chk("t1", pos=True, whi=7200, hint=tmsg)
+        if "heat" in parts:
+            E.chk("H", pos=True, wlo=5e4, whi=5e6, hint="汽化热单位为 J/kg（是否误填 kJ/kg 或 J/mol？）。")
+            E.chk("t2", pos=True, whi=7200, hint=tmsg)
+        if "heat" in parts or ("mass" in parts and E.get("rmode") == "auto"):
+            E.chk("S", pos=True, whi=1e5, hint="液池面积单位为 m²，以围堰内面积为上限（8.2.2.1）。")
+        p = None
+        if "mass" in parts:
+            E.chk("t3", pos=True, whi=7200, hint=tmsg)
+            E.chk("u", pos=True, wlo=0.5, whi=20, hint="风速单位为 m/s；最不利气象取 1.5 m/s（9.1.1.4）。")
+            if E.get("rmode") == "manual":
+                E.chk("r", pos=True, whi=200, hint="液池半径单位为 m。")
+            p = E.chk("p", pos=True, hi=101325 * 1.02,
+                      hi_msg="液体表面蒸气压 p 不应高于环境压力（约 101325 Pa）；敞开液池沸腾时取环境压力。请核对单位（Pa）。")
+            E.chk("M", pos=True, wlo=0.002, whi=1.0, hint="摩尔质量单位为 kg/mol（是否误填 g/mol？）。")
         nm = (self.current["cn"] or self.current["en"]) if self.current else "该物质"
+        if E.get("pmode") == "manual" and None not in (TT, Tb, T0):
+            if "flash" not in parts and TT > Tb:
+                E.warns.append("储存温度 %s K 高于沸点 %s K，按附录F.1.4.1 应计闪蒸，当前未勾选，请在报告中说明理由。" % (fmt(TT), fmt(Tb)))
+            if "flash" in parts and TT <= Tb:
+                E.warns.append("储存温度不高于沸点，不发生闪蒸（Q₁=0），可不勾选闪蒸。")
+            if "heat" not in parts and T0 > Tb:
+                E.warns.append("环境温度 %s K 高于沸点 %s K，按附录F.1.4.2 应计热量蒸发，当前未勾选，请在报告中说明理由。" % (fmt(T0), fmt(Tb)))
+            if "heat" in parts and T0 <= Tb:
+                E.warns.append("环境温度不高于沸点，不发生热量蒸发（Q₂=0），可不勾选热量蒸发。")
+            if parts and "mass" not in parts:
+                E.warns.append("未勾选质量蒸发。液池存在期间一般均有质量蒸发（F.1.4.3），请核对。")
         if None not in (TT, Tb, T0, p) and TT <= Tb and T0 <= Tb and p >= 101325 * 0.98:
             E.warns.append("储存温度与环境温度均不高于%s沸点 %s K，液池不沸腾，表面蒸气压应取环境温度下的饱和蒸气压，而非环境压力，请核对 p。" % (nm, fmt(Tb)))
             E._mark("p", "warn")
@@ -1587,6 +1667,8 @@ def selftest(path):
     root = tk.Tk()
     app = App(root)
     root.update()
+    out.append("版本：%s；窗口标题：%s" % (APP_VER, root.title()))
+    bad += H.VERSION not in root.title()
     out.append("物质库条目：%d" % len(app.subs))
     nh3 = next(i for i, s in enumerate(app.subs) if s["cas"] == "7664-41-7")
     app.tree.selection_set(str(nh3)) if app.tree.exists(str(nh3)) else None
@@ -1677,6 +1759,31 @@ def selftest(path):
     ok = len(vals) >= 2 and vals[0].startswith(App.QMARK) and vals[1].startswith(App.QMARK)
     bad += not ok
     out.append("当前物质下拉前列（Q 计算中的物质）：%s" % "；".join(vals[:3]))
+    # 液池蒸发：常温液体（甲醇）自动只计质量蒸发；手动只勾选质量蒸发
+    meoh = next(x for x in app.subs if x["cas"] == "67-56-1")
+    app.set_current(meoh)
+    L = app.leak
+    L.vars["type"].current(0)
+    app.evap.vars["qlmode"].current(0)
+    app.calc_leak()
+    app.calc_evap()
+    rep = app.reports.get("evap")
+    ok = bool(rep) and rep["params"][0][1] == "质量蒸发" and not any("闪蒸" in st[0] or "热量" in st[0] for st in rep["steps"])
+    bad += not ok
+    out.append("液池蒸发自动判定（甲醇，T_T＜T_b、T₀＜T_b）：%s" % (rep["params"][0][1] if rep else "无结果；" + "；".join(app.evap.errs)))
+    app.set_current(app.subs[nh3])
+    L.vars["type"].current(0)
+    app.evap.vars["pmode"].current(1)
+    app.evap_on["flash"].set(False)
+    app.evap_on["heat"].set(False)
+    app.calc_leak()
+    app.calc_evap()
+    rep = app.reports.get("evap")
+    ok = bool(rep) and rep["params"][0][1] == "质量蒸发" and len(rep["steps"]) == 2 and any("应计闪蒸" in w for w in rep["warn"])
+    bad += not ok
+    out.append("液池蒸发手动只勾选质量蒸发（液氨）：%s；计算过程 %d 步" % ("通过" if ok else "异常", len(rep["steps"]) if rep else 0))
+    app.evap.vars["pmode"].current(0)
+    app.calc_evap()
     app.q.set("甲苯")
     app.filter_db()
     out.append("搜索“甲苯”命中：%d 条" % len(app.tree.get_children()))

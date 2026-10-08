@@ -132,7 +132,7 @@ jobs:
           Copy-Item packaging\README.txt pkg\HJ169_Calculator\
           Copy-Item selftest.txt pkg\HJ169_Calculator\selftest_result.txt
           Copy-Item sample_report.docx, sample_report.xlsx pkg\HJ169_Calculator\
-          Compress-Archive -Path pkg\HJ169_Calculator -DestinationPath HJ169_Calculator_win64.zip -Force
+          Compress-Archive -Path pkg\HJ169_Calculator -DestinationPath HJ169_Calculator_v1.1_win64.zip -Force
 
       - name: 打包作者授权工具 zip
         shell: pwsh
@@ -147,7 +147,7 @@ jobs:
         with:
           name: HJ169_Calculator_win64
           path: |
-            HJ169_Calculator_win64.zip
+            HJ169_Calculator_v1.1_win64.zip
             HJ169_作者授权工具_win64.zip
             screenshot.png
             screenshot_grade.png
@@ -161,4 +161,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $tag = "build-${{ github.run_number }}"
-          gh release create $tag HJ169_Calculator_win64.zip HJ169_作者授权工具_win64.zip screenshot.png screenshot_grade.png selftest.txt sample_report.docx sample_report.xlsx --target ${{ github.sha }} --prerelease --title "HJ 169 风险计算器 Windows 版（构建 ${{ github.run_number }}）" --notes "由 GitHub Actions 在 windows-latest 上自动构建，已通过程序自检。含被保护程序 HJ169_Calculator 与作者授权工具（授权码生成器 + 密钥生成器）。"
+          gh release create $tag HJ169_Calculator_v1.1_win64.zip HJ169_作者授权工具_win64.zip screenshot.png screenshot_grade.png selftest.txt sample_report.docx sample_report.xlsx --target ${{ github.sha }} --prerelease --title "HJ 169 风险计算器 Windows 版（构建 ${{ github.run_number }}）" --notes "由 GitHub Actions 在 windows-latest 上自动构建，已通过程序自检。含被保护程序 HJ169_Calculator（v1.1）与作者授权工具（授权码生成器 + 密钥生成器）。"

@@ -5,6 +5,9 @@
 """
 import math
 
+VERSION = "1.1"
+VERSION_DATE = "2026-10-08"
+
 G = 9.81    # 重力加速度，式(F.1) 注明取 9.81 m/s²
 R = 8.314   # 气体常数 J/(mol·K)；导则未给数值，取通用值
 M_AIR = 0.028965  # 干空气平均摩尔质量 kg/mol（通用值）
@@ -279,42 +282,61 @@ STAB = {  # 表F.3
 }
 
 
-def evaporation(QL, Cp, TT, Tb, Hv, H, T0, S, surface, t1, t2, t3, stab, p, M, u, r):
+EVAP_PARTS = ("flash", "heat", "mass")
+
+
+def evap_auto_parts(TT, Tb, T0):
+    """按附录F.1.4 适用条件自动确定参与计算的蒸发项：
+    闪蒸——储存温度高于沸点（过热液体）；热量蒸发——环境（地面）温度高于沸点；质量蒸发——液池存在即计。"""
+    parts = []
+    if TT > Tb:
+        parts.append("flash")
+    if T0 > Tb:
+        parts.append("heat")
+    parts.append("mass")
+    return parts
+
+
+def evaporation(QL, Cp, TT, Tb, Hv, H, T0, S, surface, t1, t2, t3, stab, p, M, u, r, parts=EVAP_PARTS):
+    """parts：参与计算的蒸发项（flash/heat/mass）；未选项不计算、不列入计算过程，速率记为 0。"""
     steps, warn = [], []
-    Fv = Cp * (TT - Tb) / Hv
-    steps.append(_st("闪蒸比例 F_v", "式(F.9) F_v = C_p(T_T − T_b)/H_v", "%s×(%s−%s)/%s" % (fmt(Cp), fmt(TT), fmt(Tb), fmt(Hv)), fmt(Fv)))
-    if Fv <= 0:
-        warn.append("储存温度不高于沸点，不发生闪蒸，Q₁=0。")
-        Fv = 0.0
-    if Fv > 1:
-        warn.append("F_v＞1，泄漏液体全部闪蒸，按 F_v=1 计。")
-        Fv = 1.0
-    Q1 = QL * Fv
-    steps.append(_st("闪蒸蒸发速率 Q₁", "式(F.10) Q₁ = Q_L × F_v", "%s×%s" % (fmt(QL), fmt(Fv)), "%s kg/s" % fmt(Q1)))
-    sname, lam, alp = SURF[surface]
-    Q2 = 0.0
-    if T0 > Tb and Fv < 1:
-        Q2 = lam * S * (T0 - Tb) / (H * math.sqrt(math.pi * alp * t2))
-        steps.append(_st("热量蒸发速率 Q₂", "式(F.11) Q₂ = λS(T₀ − T_b)/(H√(παt))；地面：%s，λ=%s W/(m·K)，α=%s m²/s（表F.2）" % (sname, lam, fmt(alp, 3)),
-                         "%s×%s×(%s−%s)/(%s×√(π×%s×%s))" % (lam, fmt(S), fmt(T0), fmt(Tb), fmt(H), fmt(alp, 3), fmt(t2)), "%s kg/s" % fmt(Q2)))
-    else:
-        steps.append(_st("热量蒸发速率 Q₂", "式(F.11)", "环境温度不高于沸点，不发生热量蒸发" if T0 <= Tb else "已全部闪蒸，无液池", "0 kg/s"))
-    stname, n, a = STAB[stab]
-    e1, e2 = (2 - n) / (2 + n), (4 + n) / (2 + n)
-    Q3 = 0.0
-    if Fv < 1:
-        Q3 = a * p * M / (R * T0) * u ** e1 * r ** e2
-        steps.append(_st("质量蒸发速率 Q₃", "式(F.12) Q₃ = α·p·M/(R·T₀)·u^((2−n)/(2+n))·r^((4+n)/(2+n))；稳定度 %s：n=%s，α=%s（表F.3）" % (stname, n, fmt(a)),
-                         "%s×%s×%s/(8.314×%s)×%s^%s×%s^%s" % (fmt(a), fmt(p), fmt(M), fmt(T0), fmt(u), fmt(e1), fmt(r), fmt(e2)), "%s kg/s" % fmt(Q3)))
-    else:
-        steps.append(_st("质量蒸发速率 Q₃", "式(F.12)", "已全部闪蒸，无液池", "0 kg/s"))
-    Wp = Q1 * t1 + Q2 * t2 + Q3 * t3
-    steps.append(_st("液体蒸发总量 W_p", "式(F.13) W_p = Q₁t₁ + Q₂t₂ + Q₃t₃",
-                     "%s×%s + %s×%s + %s×%s" % (fmt(Q1), fmt(t1), fmt(Q2), fmt(t2), fmt(Q3), fmt(t3)), "%s kg" % fmt(Wp)))
-    leaked = QL * t1
-    if t1 > 0 and Wp > leaked:
-        warn.append("蒸发总量 %s kg 大于泄漏总量 Q_L×t₁ = %s kg，按式(F.13)机械相加已超出物料守恒，报告中应以泄漏量为上限并说明。" % (fmt(Wp), fmt(leaked)))
-    return {"v": Wp, "Q1": Q1, "Q2": Q2, "Q3": Q3, "Fv": Fv, "steps": steps, "warn": warn}
+    Fv, Q1, Q2, Q3 = 0.0, 0.0, 0.0, 0.0
+    if "flash" in parts:
+        Fv = Cp * (TT - Tb) / Hv
+        steps.append(_st("闪蒸比例 F_v", "式(F.9) F_v = C_p(T_T − T_b)/H_v", "%s×(%s−%s)/%s" % (fmt(Cp), fmt(TT), fmt(Tb), fmt(Hv)), fmt(Fv)))
+        if Fv <= 0:
+            warn.append("储存温度不高于沸点，不发生闪蒸，Q₁=0。")
+            Fv = 0.0
+        if Fv > 1:
+            warn.append("F_v＞1，泄漏液体全部闪蒸，按 F_v=1 计。")
+            Fv = 1.0
+        Q1 = QL * Fv
+        steps.append(_st("闪蒸蒸发速率 Q₁", "式(F.10) Q₁ = Q_L × F_v", "%s×%s" % (fmt(QL), fmt(Fv)), "%s kg/s" % fmt(Q1)))
+    if "heat" in parts:
+        sname, lam, alp = SURF[surface]
+        if T0 > Tb and Fv < 1:
+            Q2 = lam * S * (T0 - Tb) / (H * math.sqrt(math.pi * alp * t2))
+            steps.append(_st("热量蒸发速率 Q₂", "式(F.11) Q₂ = λS(T₀ − T_b)/(H√(παt))；地面：%s，λ=%s W/(m·K)，α=%s m²/s（表F.2）" % (sname, lam, fmt(alp, 3)),
+                             "%s×%s×(%s−%s)/(%s×√(π×%s×%s))" % (lam, fmt(S), fmt(T0), fmt(Tb), fmt(H), fmt(alp, 3), fmt(t2)), "%s kg/s" % fmt(Q2)))
+        else:
+            steps.append(_st("热量蒸发速率 Q₂", "式(F.11)", "环境温度不高于沸点，不发生热量蒸发" if T0 <= Tb else "已全部闪蒸，无液池", "0 kg/s"))
+    if "mass" in parts:
+        stname, n, a = STAB[stab]
+        e1, e2 = (2 - n) / (2 + n), (4 + n) / (2 + n)
+        if Fv < 1:
+            Q3 = a * p * M / (R * T0) * u ** e1 * r ** e2
+            steps.append(_st("质量蒸发速率 Q₃", "式(F.12) Q₃ = α·p·M/(R·T₀)·u^((2−n)/(2+n))·r^((4+n)/(2+n))；稳定度 %s：n=%s，α=%s（表F.3）" % (stname, n, fmt(a)),
+                             "%s×%s×%s/(8.314×%s)×%s^%s×%s^%s" % (fmt(a), fmt(p), fmt(M), fmt(T0), fmt(u), fmt(e1), fmt(r), fmt(e2)), "%s kg/s" % fmt(Q3)))
+        else:
+            steps.append(_st("质量蒸发速率 Q₃", "式(F.12)", "已全部闪蒸，无液池", "0 kg/s"))
+    terms = [(q, t, k) for q, t, k, on in ((Q1, t1, "Q₁t₁", "flash" in parts), (Q2, t2, "Q₂t₂", "heat" in parts), (Q3, t3, "Q₃t₃", "mass" in parts)) if on]
+    Wp = sum(q * t for q, t, _ in terms)
+    steps.append(_st("液体蒸发总量 W_p", "式(F.13) W_p = " + " + ".join(k for _, _, k in terms) + ("（未选蒸发项不计）" if len(terms) < 3 else ""),
+                     " + ".join("%s×%s" % (fmt(q), fmt(t)) for q, t, _ in terms), "%s kg" % fmt(Wp)))
+    leaked = QL * max([t for _, t, _ in terms] or [0])
+    if leaked > 0 and Wp > leaked:
+        warn.append("蒸发总量 %s kg 大于泄漏总量估算值 %s kg，按式(F.13)机械相加已超出物料守恒，报告中应以泄漏量为上限并说明。" % (fmt(Wp), fmt(leaked)))
+    return {"v": Wp, "Q1": Q1, "Q2": Q2, "Q3": Q3, "Fv": Fv, "steps": steps, "warn": warn, "parts": list(parts)}
 
 
 # 表F.4

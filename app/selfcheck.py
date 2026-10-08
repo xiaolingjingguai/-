@@ -20,6 +20,11 @@ def ev_meoh():
                          surface="cement", t1=600, t2=1200, t3=1800, stab="EF", p=12880, M=0.0320419, u=1.5, r=R200)
 
 
+def _meoh_mass():
+    return H.evaporation(QL=10.04, Cp=2531, TT=293.15, Tb=337.65, Hv=1098874, H=1098874, T0=298.15, S=200,
+                         surface="cement", t1=600, t2=1200, t3=1800, stab="EF", p=12880, M=0.0320419, u=1.5, r=R200, parts=["mass"])
+
+
 RHO_A = H.ideal_rho(101325, 0.028965, 298.15)
 CASES = [
     ("液氨 Q_L (F.1)", 1.5589690071088, lambda: H.liquid_leak(0.65, A10, 609.4, 854500, 101325, 2)["v"]),
@@ -56,6 +61,8 @@ def run():
         (H.GRADE["Ⅱ"], "三级"), (H.e_air("site", 30000, 300)["v"], "E2"), (H.d_class(1.2, 5e-5), "D2"),
         (H.TABLE_D5["D2"]["G3"], "E3"), (H.release_ratio(300, 500)["v"], 3), (H.release_ratio(50, 5000)["v"], None),
         (H.max_pot(["Ⅱ", "Ⅳ+", "Ⅲ"]), "Ⅳ+"), (H.potential(None, "E1"), "Ⅰ"),
+        (H.evap_auto_parts(293.15, 337.65, 298.15), ["mass"]), (H.evap_auto_parts(293.15, 239.85, 298.15), ["flash", "heat", "mass"]),
+        (abs(_meoh_mass()["v"] - ev_meoh()["Q3"] * 1800) < 1e-9 and len(_meoh_mass()["steps"]) == 2, True),
         (H.air_scope("二级")[0], "距建设项目边界不低于 5 km"), (H.air_scope("三级")[0], "距建设项目边界不低于 3 km"),
         (H.air_scope("一级", "pipe")[0], "管道中心线两侧各不低于 200 m"), ("6200 m" in H.air_scope("一级", "site", 6200)[0], True), (H.gas_leak(1, A5, 700000, 101325, 0.070906, 1.325, 293.15)["critical"], True),
     ]

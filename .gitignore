@@ -2,3 +2,7 @@ __pycache__/
 build/
 dist/
 *.spec
+# 授权相关：作者真实私钥与签发的授权文件不入库、不分发
+tools/keys/
+*.key
+author_private*.pem

@@ -14,6 +14,7 @@ from tkinter import filedialog, messagebox, ttk
 import hj169calc as H
 import report_export as RX
 import selfcheck
+import license_verify
 
 APP_NAME = "HJ 169 风险计算器"
 APP_VER = "1.0（2026-10-07）"
@@ -1645,12 +1646,18 @@ def selftest(path):
 def main():
     if len(sys.argv) >= 3 and sys.argv[1] == "--selftest":
         sys.exit(selftest(sys.argv[2]))
+    if "--print-machine" in sys.argv:
+        print(license_verify.machine_code())
+        sys.exit(0)
     if sys.platform == "win32":
         try:
             import ctypes
             ctypes.windll.shcore.SetProcessDpiAwareness(1)
         except Exception:
             pass
+    # 启动门禁：无有效许可证时弹窗显示机器码与申请说明并退出
+    if license_verify.gate() is None:
+        return
     root = tk.Tk()
     app = App(root)
     if "--demo-grade" in sys.argv:

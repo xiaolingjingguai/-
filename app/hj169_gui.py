@@ -643,24 +643,35 @@ class App:
 
         ttk.Label(f, text="二、行业及生产工艺 M", style="H.TLabel").grid(row=4, column=0, sticky="w", pady=(14, 0))
         ttk.Label(f, text="附录C.1.2 表C.1；多套工艺单元分别评分求和", style="Ref.TLabel").grid(row=5, column=0, sticky="w")
-        self.mtree = ttk.Treeview(f, columns=("o", "n", "s"), show="headings", height=4)
-        for c, t, w in zip(("o", "n", "s"), ("评估依据", "套数", "分值"), (520, 60, 90)):
-            self.mtree.heading(c, text=t)
-            self.mtree.column(c, width=w, anchor="w" if c == "o" else "e")
-        self.mtree.grid(row=6, column=0, sticky="ew", pady=4)
-        mb = ttk.Frame(f)
-        mb.grid(row=7, column=0, sticky="w")
-        self.m_opt = ttk.Combobox(mb, values=[c[0] for c in H.C1], state="readonly", width=60)
-        self.m_opt.current(2)
-        self.m_opt.pack(side="left")
-        ttk.Label(mb, text=" 套数").pack(side="left")
-        self.m_cnt = tk.StringVar(value="1")
-        ttk.Entry(mb, textvariable=self.m_cnt, width=5).pack(side="left")
-        ttk.Button(mb, text="添加", command=self.add_m).pack(side="left", padx=4)
-        ttk.Button(mb, text="删除所选", command=self.del_m).pack(side="left")
+        mf = ttk.Frame(f)
+        mf.grid(row=6, column=0, sticky="ew", pady=4)
+        mf.columnconfigure(1, weight=1)
+        for c, t in enumerate(("勾选", "表C.1 评估依据（可多项勾选）", "分值", "套数", "得分")):
+            ttk.Label(mf, text=t, style="H.TLabel").grid(row=0, column=c, sticky="w", padx=3)
+        self.m_chk, self.m_cnt, self.m_score = [], [], []
+        for i, (name, score, lab) in enumerate(H.C1):
+            v, cv = tk.BooleanVar(value=(i == 2)), tk.StringVar(value="1")
+            ttk.Checkbutton(mf, variable=v, command=self.sync_m).grid(row=i + 1, column=0, padx=3)
+            t = ttk.Label(mf, text=name, wraplength=400, justify="left")
+            t.grid(row=i + 1, column=1, sticky="w", pady=2, padx=3)
+            t.bind("<Button-1>", lambda e, v=v: (v.set(not v.get()), self.sync_m()))
+            ttk.Label(mf, text=lab, style="Unit.TLabel").grid(row=i + 1, column=2, sticky="w", padx=3)
+            en = ttk.Entry(mf, textvariable=cv, width=5, state="normal" if "/套" in lab else "disabled")
+            en.grid(row=i + 1, column=3, padx=3)
+            en.bind("<KeyRelease>", lambda e: self.sync_m())
+            sl = ttk.Label(mf, text="", width=6, anchor="e")
+            sl.grid(row=i + 1, column=4, padx=3)
+            self.m_chk.append(v)
+            self.m_cnt.append(cv)
+            self.m_score.append(sl)
+        ttk.Label(f, text="注：a 高温指工艺温度≥300 ℃，高压指压力容器设计压力≥10.0 MPa；b 长输管道运输项目应按站场、管线分段进行评价（表C.1 注）。"
+                          "“/套”项按套数计分，其余项为固定分值。", style="Src.TLabel", wraplength=640).grid(row=7, column=0, sticky="w")
+        self.m_total = ttk.Label(f, text="", style="Grade.TLabel")
+        self.m_total.grid(row=8, column=0, sticky="w", pady=(2, 0))
+        self.m_bad = []
 
         ef = ttk.Frame(f)
-        ef.grid(row=8, column=0, sticky="ew")
+        ef.grid(row=9, column=0, sticky="ew")
         self.E = Form(ef, self.calc_risk)
         self.E.head("三、环境敏感程度 E", "附录D 表D.1～D.7")
         self.E.combo("mode", "大气：项目形式", [("site", "厂区类项目"), ("pipe", "油气、化学品输送管线")])
@@ -703,7 +714,7 @@ class App:
         if hcl and len(hcl["b1"]) > 1:
             self.risk_items.append([hcl["b1"][1][0], hcl["cas"], hcl["b1"][1][1], 10.0, "表B.1（示例数据）"])
         self.draw_q()
-        self.draw_m()
+        self.sync_m(calc=False)
 
     def draw_q(self):
         if hasattr(self, "pick"):
@@ -713,26 +724,47 @@ class App:
             r = fmt(q / qc) if qc else "—"
             self.qtree.insert("", "end", iid=str(i), values=(n, cas or "—", fmt(qc) if qc else "信息不足", fmt(q), r, src))
 
-    def draw_m(self):
-        self.mtree.delete(*self.mtree.get_children())
-        for i, (o, c) in enumerate(self.m_units):
-            self.mtree.insert("", "end", iid=str(i), values=(H.C1[o][0], fmt(c), H.C1[o][2]))
+    def set_m(self, units):
+        """units: [(表C.1 序号, 套数)]，供自检及程序内设置勾选。"""
+        d = dict(units)
+        for i in range(len(H.C1)):
+            self.m_chk[i].set(i in d)
+            self.m_cnt[i].set(fmt(d.get(i, 1)))
+        self.sync_m()
 
-    def add_m(self):
-        try:
-            c = parse(self.m_cnt.get())
-        except ValueError:
-            messagebox.showwarning(APP_NAME, "套数请输入数字。")
-            return
-        self.m_units.append((self.m_opt.current(), c))
-        self.draw_m()
-        self.calc_risk()
-
-    def del_m(self):
-        for iid in sorted(self.mtree.selection(), key=int, reverse=True):
-            self.m_units.pop(int(iid))
-        self.draw_m()
-        self.calc_risk()
+    def sync_m(self, calc=True):
+        """由勾选与套数生成 m_units，刷新各项得分与 M 合计。"""
+        self.m_units, self.m_bad = [], []
+        parts = []
+        for i, (name, score, lab) in enumerate(H.C1):
+            if not self.m_chk[i].get():
+                self.m_score[i].configure(text="")
+                continue
+            if "/套" in lab:
+                try:
+                    c = parse(self.m_cnt[i].get())
+                except ValueError:
+                    c = None
+                if c is None or c <= 0:
+                    self.m_bad.append("表C.1“%s”已勾选，套数须为大于 0 的数字。" % name[:18])
+                    self.m_score[i].configure(text="?", style="Bad.TLabel")
+                    continue
+                if c != int(c):
+                    self.m_bad.append("表C.1“%s”套数应为整数（当前 %s）。" % (name[:18], fmt(c)))
+            else:
+                c = 1
+            self.m_units.append((i, c))
+            parts.append(fmt(score * c))
+            self.m_score[i].configure(text=fmt(score * c), style="TLabel")
+        if self.m_bad:
+            self.m_total.configure(text="M：套数有误", style="Bad.TLabel")
+        elif self.m_units:
+            M = H.m_value(self.m_units)
+            self.m_total.configure(text="M = %s = %s　→ %s" % (" + ".join(parts), fmt(M["v"]), M["cls"]), style="Grade.TLabel")
+        else:
+            self.m_total.configure(text="尚未勾选表C.1 评估依据", style="Bad.TLabel")
+        if calc and hasattr(self, "risk_res"):
+            self.calc_risk()
 
     def del_q(self):
         for iid in sorted(self.qtree.selection(), key=int, reverse=True):
@@ -846,13 +878,14 @@ class App:
                 E.errs.append("“%s”的最大存在总量不能为负值或空值（双击该行修改）。" % n)
             if qc is not None and qc <= 0:
                 E.errs.append("“%s”的临界量必须大于 0。" % n)
+        E.errs += self.m_bad
         for o, c in self.m_units:
             if c <= 0:
                 E.errs.append("工艺单元“%s”的套数必须大于 0。" % H.C1[o][0][:16])
         if not self.risk_items:
             E.errs.append("尚未添加危险物质，无法计算 Q。")
-        if not self.m_units:
-            E.warns.append("尚未添加工艺单元，M 按 0 计。")
+        if not self.m_units and not self.m_bad:
+            E.errs.append("“二、行业及生产工艺 M”尚未勾选表C.1 评估依据。不涉及表列工艺的项目，至少勾选“其他：涉及危险物质使用、贮存的项目”（5 分）。")
         if E.errs:
             self.risk_res.error(E.errs, E.warns)
             self.grade = None
@@ -904,7 +937,8 @@ class App:
         extra = "\n".join("　%s：敏感程度 %s，风险潜势 %s，评价工作等级 %s；评价范围：%s" % (x + (scopes[x[0]][0],)) for x in els)
         params = [["%s%s 最大存在总量 q／临界量 Q" % (n, "（CAS %s）" % c if c else ""), "%s t／%s t" % (fmt(q), fmt(qc) if qc else "信息不足"), "", "临界量来源：HJ 169-2018 附录B %s" % src]
                   for n, c, qc, q, src in self.risk_items]
-        params += [["工艺单元", "%s，%s 套" % (H.C1[o][0], fmt(c)), "", "表C.1"] for o, c in self.m_units]
+        params += [["行业及生产工艺 M（第 %d 项）" % (k + 1), "%s；%s × %s = %s 分" % (H.C1[o][0], H.C1[o][2], fmt(c), fmt(H.C1[o][1] * c)), "分", "表C.1；多套工艺单元分别评分求和（C.1.2）"]
+                   for k, (o, c) in enumerate(self.m_units)]
         if site:
             params.append(["大气敏感目标人口", "5 km 范围 %s 人，500 m 范围 %s 人，特殊保护区域：%s" % (fmt(E.get("pop5")), fmt(E.get("pop05")), "有" if E.get("special") else "无"), "", "现场调查／统计资料，请注明"])
         else:
@@ -1608,7 +1642,7 @@ def selftest(path):
     app.set_current(app.subs[nh3])
     app.risk_items[:] = [["盐酸（≥37%）", "7647-01-0", 7.5, 25.1 + 58.8 + 4.1, "表B.1"], ["氨水（浓度≥20%）", "7664-41-7", 10.0, 0.5, "表B.1"],
                          ["油类物质", "", 2500.0, 0.11, "表B.1"]]
-    app.m_units[:] = [(2, 1), (5, 1)]
+    app.set_m([(2, 1), (5, 1)])
     app.draw_q()
     E = app.E
     E.set("pop5", 60000)
@@ -1619,8 +1653,15 @@ def selftest(path):
     exp = [["大气", "E1", "Ⅲ", "二级"], ["地表水", "E3", "Ⅱ", "三级"], ["地下水", "E3", "Ⅱ", "三级"], ["建设项目", "—", "Ⅲ", "二级"]]
     ok = bool(g) and [r[:4] for r in g["rows"]] == exp
     bad += not ok
+    out.append("M 多项勾选：%s" % app.m_total.cget("text"))
+    bad += app.m_total.cget("text") != "M = 5 + 5 = 10　→ M3"
     out.append("评价等级判定（福泰热镀锌算例）：%s；%s" % ("与报告一致" if ok else "不一致", g["head"] if g else "无结果"))
     out.append("判定表：" + "；".join("、".join(r) for r in g["rows"]) if g else "")
+    app.set_m([(1, 2), (2, 1), (5, 1)])
+    ok = app.m_total.cget("text") == "M = 10 + 5 + 5 = 20　→ M2" and app.reports["risk"]["steps"] and any("M 合计" == st[0] for st in app.reports["risk"]["steps"])
+    bad += not ok
+    out.append("M 三项勾选（制酸 2 套＋高温 1 套＋其他）：%s" % app.m_total.cget("text"))
+    app.set_m([(2, 1), (5, 1)])
     app.show_grade_window()
     root.update()
     ok = len(app.gw_tree.get_children()) == 4 and "Ⅲ" in app.gw_head.cget("text")

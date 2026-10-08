@@ -72,6 +72,36 @@ def _load_private(path):
         return ser.load_pem_private_key(f.read(), password=None)
 
 
+def public_hex_of_private(key_path):
+    """返回私钥对应公钥的 hex（Raw 32 字节）。"""
+    sk = _load_private(key_path)
+    return sk.public_key().public_bytes(ser.Encoding.Raw, ser.PublicFormat.Raw).hex()
+
+
+def key_matches_app(key_path):
+    """判断该私钥是否与被保护程序内置的作者公钥（LV.PUBLIC_KEY_HEX）配套。
+    只有配套的私钥签出来的 license.key 才能在该程序上通过校验。"""
+    try:
+        return public_hex_of_private(key_path).lower() == LV.PUBLIC_KEY_HEX.lower()
+    except Exception:
+        return False
+
+
+def _auto_default_key():
+    """按优先级自动寻找作者私钥：EXE/脚本旁的 author_private.pem、其 keys 子目录、
+    最后才是演示私钥（仅脚本源码环境存在）。找不到返回 ""。"""
+    for p in (os.path.join(BASE, "author_private.pem"), DEFAULT_KEY, DEMO_KEY):
+        if os.path.exists(p):
+            return p
+    return ""
+
+
+def _app_fingerprint():
+    """内置授权公钥的短指纹（末 8 位），供用户核对私钥/公钥是否配套。"""
+    k = LV.PUBLIC_KEY_HEX
+    return k[-8:].upper() if k else "(无)"
+
+
 def _norm_machine(code):
     return str(code).strip().upper()
 
@@ -102,9 +132,20 @@ def _cli(argv):
     ap.add_argument("--permanent", action="store_true", help="签发永久授权（无到期日）")
     ap.add_argument("--key", default="", help="私钥 PEM 路径，默认 tools/keys/author_private.pem")
     ap.add_argument("--out", default="license.key", help="输出文件，默认 license.key")
+    ap.add_argument("--allow-mismatch", action="store_true",
+                    help="允许用与内置公钥不配套的私钥签发（仅 CI/演示用，正式签发勿用）")
     a = ap.parse_args(argv)
     expiry = resolve_expiry(a.expiry, a.permanent)
-    text, used = make_license(a.machine, a.name, expiry, a.key or None)
+    kp = a.key or _auto_default_key() or DEMO_KEY
+    if not os.path.exists(kp):
+        print("错误：找不到私钥文件：%s" % kp)
+        return 2
+    if not a.allow_mismatch and not key_matches_app(kp):
+        print("错误：这把私钥与程序内置的授权公钥（指纹 …%s）不配套，签出来的 license.key 无法使用。"
+              % _app_fingerprint())
+        print("请改用与当前这版程序配套的 author_private.pem（即生成当前程序公钥时产生的那把私钥）。")
+        return 2
+    text, used = make_license(a.machine, a.name, expiry, kp)
     with open(a.out, "w", encoding="utf-8") as f:
         f.write(text + "\n")
     demo = os.path.abspath(used) == os.path.abspath(DEMO_KEY)
@@ -125,7 +166,9 @@ def _gui():
     frm = ttk.Frame(root, padding=16)
     frm.pack(fill="both", expand=True)
     ttk.Label(frm, text="为指定用户签发授权文件 license.key",
-              font=("Microsoft YaHei", 12, "bold")).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 10))
+              font=("Microsoft YaHei", 12, "bold")).grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 2))
+    ttk.Label(frm, text="本程序配套的授权公钥指纹：…%s（请用对应的私钥签发）" % _app_fingerprint(),
+              foreground="#555").grid(row=1, column=0, columnspan=3, sticky="w", pady=(0, 10))
 
     def row(r, label):
         ttk.Label(frm, text=label).grid(row=r, column=0, sticky="e", padx=(0, 8), pady=4)
@@ -134,40 +177,60 @@ def _gui():
         e.grid(row=r, column=1, columnspan=2, sticky="we", pady=4)
         return v
 
-    m_var = row(1, "用户机器码：")
-    n_var = row(2, "授权给（可选）：")
-    x_var = row(3, "到期日(YYYY-MM-DD，空=默认一年，填“永久”=永久)：")
+    m_var = row(2, "用户机器码：")
+    n_var = row(3, "授权给（可选）：")
+    x_var = row(4, "到期日(YYYY-MM-DD，空=默认一年，填“永久”=永久)：")
 
-    if os.path.exists(DEFAULT_KEY):
-        key_default = DEFAULT_KEY
-    elif os.path.exists(DEMO_KEY):
-        key_default = DEMO_KEY
-    else:
-        key_default = ""  # 打包后首次使用：留空，由用户“浏览…”选私钥
-    k_var = tk.StringVar(value=key_default)
-    ttk.Label(frm, text="私钥文件：").grid(row=4, column=0, sticky="e", padx=(0, 8), pady=4)
-    ttk.Entry(frm, textvariable=k_var, width=32).grid(row=4, column=1, sticky="we", pady=4)
+    k_var = tk.StringVar(value=_auto_default_key())
+    ttk.Label(frm, text="私钥文件：").grid(row=5, column=0, sticky="e", padx=(0, 8), pady=4)
+    ttk.Entry(frm, textvariable=k_var, width=32).grid(row=5, column=1, sticky="we", pady=4)
 
     def pick_key():
         p = filedialog.askopenfilename(title="选择私钥 PEM", filetypes=[("PEM", "*.pem"), ("全部", "*.*")])
         if p:
             k_var.set(p)
 
-    ttk.Button(frm, text="浏览…", command=pick_key).grid(row=4, column=2, sticky="w", pady=4)
+    ttk.Button(frm, text="浏览…", command=pick_key).grid(row=5, column=2, sticky="w", pady=4)
 
-    if os.path.abspath(key_default) == os.path.abspath(DEMO_KEY):
-        ttk.Label(frm, text="注意：当前为演示密钥，正式分发前请先运行 make_keys.py 生成自己的密钥。",
-                  foreground="#b00020", wraplength=420, justify="left").grid(
-            row=5, column=0, columnspan=3, sticky="w", pady=(2, 6))
+    status = ttk.Label(frm, text="", wraplength=460, justify="left")
+    status.grid(row=6, column=0, columnspan=3, sticky="w", pady=(2, 6))
+
+    def refresh_status(*_):
+        p = k_var.get().strip()
+        if not p:
+            status.configure(text="请选择你的私钥 author_private.pem（“浏览…”）。", foreground="#b00020")
+        elif not os.path.exists(p):
+            status.configure(text="私钥文件不存在：%s" % p, foreground="#b00020")
+        elif key_matches_app(p):
+            status.configure(text="✓ 私钥与本程序配套，签出的授权可用。", foreground="#1a7f37")
+        elif os.path.abspath(p) == os.path.abspath(DEMO_KEY):
+            status.configure(text="✗ 这是演示私钥，与本程序公钥不配套，签出的授权无法使用。", foreground="#b00020")
+        else:
+            status.configure(text="✗ 这把私钥与本程序公钥（指纹 …%s）不配套，签出的授权无法使用。"
+                                   "请改用生成本程序公钥时产生的 author_private.pem。" % _app_fingerprint(),
+                             foreground="#b00020")
+
+    k_var.trace_add("write", refresh_status)
+    refresh_status()
 
     def do_issue():
         m = m_var.get().strip()
         if not m:
             messagebox.showwarning("提示", "请填写用户机器码")
             return
+        kp = k_var.get().strip()
+        if not kp or not os.path.exists(kp):
+            messagebox.showwarning("提示", "请先选择你的私钥 author_private.pem")
+            return
+        if not key_matches_app(kp):
+            messagebox.showerror("私钥不配套",
+                                 "这把私钥与本程序内置的授权公钥（指纹 …%s）不配套，\n"
+                                 "签出来的 license.key 在计算器上会提示“签名无效”。\n\n"
+                                 "请改用生成本程序这版公钥时产生的 author_private.pem 再签。" % _app_fingerprint())
+            return
         try:
             expiry = resolve_expiry(x_var.get().strip())
-            text, used = make_license(m, n_var.get().strip(), expiry, k_var.get().strip())
+            text, used = make_license(m, n_var.get().strip(), expiry, kp)
         except Exception as ex:
             messagebox.showerror("签发失败", str(ex))
             return
@@ -181,7 +244,7 @@ def _gui():
                             % (out, expiry or "永久"))
 
     ttk.Button(frm, text="签发 license.key", command=do_issue).grid(
-        row=6, column=0, columnspan=3, pady=(10, 0), sticky="we")
+        row=7, column=0, columnspan=3, pady=(10, 0), sticky="we")
     frm.columnconfigure(1, weight=1)
     root.mainloop()
 

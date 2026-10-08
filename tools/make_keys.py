@@ -54,12 +54,15 @@ def main():
     except Exception:
         pass
     pub = sk.public_key().public_bytes(ser.Encoding.Raw, ser.PublicFormat.Raw)
+    fp = pub.hex()[-8:].upper()
     line = 'PUBLIC_KEY_HEX = "%s"' % pub.hex()
     with open(pubtxt, "w", encoding="utf-8") as f:
+        f.write("公钥指纹（末8位）：%s —— 授权码生成器里显示的指纹与此一致，才说明这把私钥配套。\n\n" % fp)
         f.write("把下面这一行贴进 app/license_verify.py（替换原 PUBLIC_KEY_HEX），然后重新打包程序：\n\n")
         f.write(line + "\n")
     print("已生成私钥：%s" % priv)
     print("请妥善离线保管该私钥，切勿上传仓库或随程序分发。\n")
+    print("公钥指纹（末8位）：%s" % fp)
     print("公钥已写入：%s" % pubtxt)
     print("请将 app/license_verify.py 中的公钥常量替换为下面这一行，然后重新打包程序：\n")
     print(line)

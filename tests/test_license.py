@@ -42,6 +42,10 @@ def run():
     k = LV.PUBLIC_KEY_HEX
     check("内置公钥格式正确", isinstance(k, str) and len(k) == 64 and all(c in "0123456789abcdefABCDEF" for c in k))
 
+    # 私钥—内置公钥配套校验：演示私钥与正式内置公钥不配套，应被判为不匹配
+    check("配套校验识别不匹配私钥", LI.public_hex_of_private(DEMO_KEY) == demo_pub
+          and (LI.key_matches_app(DEMO_KEY) == (demo_pub.lower() == k.lower())))
+
     code1 = LV.machine_code()
     code2 = LV.machine_code()
     check("机器码稳定", code1 == code2 and "-" in code1)

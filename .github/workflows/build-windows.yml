@@ -67,7 +67,7 @@ jobs:
         run: |
           $code = python -c "import sys; sys.path.insert(0,'app'); import license_verify as L; print(L.machine_code())"
           Write-Host "CI 机器码：$code"
-          python tools\license_issuer.py sign --machine "$code" --name "CI 演示" --key tools\keys_demo\private_demo.pem --out dist\license.key
+          python tools\license_issuer.py sign --machine "$code" --name "CI 演示" --key tools\keys_demo\private_demo.pem --allow-mismatch --out dist\license.key
           Get-Content dist\license.key -Encoding UTF8
 
       - name: 界面截图（演示版）

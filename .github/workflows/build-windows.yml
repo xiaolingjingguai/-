@@ -48,7 +48,7 @@ jobs:
       - name: 界面截图
         shell: pwsh
         run: |
-          $app = Start-Process -FilePath dist\HJ169_Calculator.exe -PassThru
+          $app = Start-Process -FilePath dist\HJ169_Calculator.exe -ArgumentList '--demo-risk' -PassThru
           Start-Sleep -Seconds 12
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
           $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds

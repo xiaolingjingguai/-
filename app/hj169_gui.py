@@ -1694,6 +1694,8 @@ def main():
             pass
     root = tk.Tk()
     app = App(root)
+    if "--demo-risk" in sys.argv:
+        app.nb.select(1)
     if "--demo-grade" in sys.argv:
         app.nb.select(1)
         root.after(1500, app.show_grade_window)

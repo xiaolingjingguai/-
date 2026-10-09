@@ -20,3 +20,9 @@
 ```
 python app/hj169_gui.py
 ```
+
+---
+
+# 生态影响评价制图（桌面版）
+
+目录 `ecomap/`：按 HJ 19—2022 批量编制生态影响评价图件的 Windows 桌面程序，说明见 `ecomap/README.md`，构建流程见 `.github/workflows/build-ecomap.yml`。

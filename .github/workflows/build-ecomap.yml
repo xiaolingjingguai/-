@@ -59,7 +59,12 @@ jobs:
         run: |
           $p = Start-Process -FilePath dist\${{ env.APP }}\${{ env.APP }}.exe -ArgumentList '--selftest', "$PWD\selftest.txt" -Wait -PassThru
           Get-Content selftest.txt -Encoding UTF8
-          if ($p.ExitCode -ne 0) { throw "自检失败，退出码 $($p.ExitCode)" }
+          $txt = (Get-Content selftest.txt -Encoding UTF8 -Raw) -replace '%','%25' -replace "`r",'' -replace "`n",'%0A'
+          if ($p.ExitCode -ne 0) {
+            Write-Output "::error title=EXE 自检失败::$txt"
+            throw "自检失败，退出码 $($p.ExitCode)"
+          }
+          Write-Output "::notice title=EXE 自检结果::$txt"
           $out = (Select-String -Path selftest.txt -Pattern '示例输出目录：(.+)$' -Encoding UTF8).Matches[0].Groups[1].Value.Trim()
           New-Item -ItemType Directory -Force samples | Out-Null
           Copy-Item "$out\*.pdf", "$out\*.jpg", "$out\*.xlsx" samples\

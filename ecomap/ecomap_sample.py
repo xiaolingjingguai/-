@@ -163,6 +163,7 @@ def make_sample(out_dir, seed=20221):
         {"path": P(out_dir, "示例生态保护红线.shp"), "layer": "", "name": "示例生态保护红线", "field": "",
          "source": "示例生态保护红线（虚构）"},
     ]
+    cfg["maps"] = [s["id"] for s in C.MAP_SPECS]   # 示例项目演示全部图件
     cfg["fvc"].update(ndvi=P(out_dir, "NDVI_示例.tif"), source="示例 NDVI 栅格（虚构），10 m")
     path = P(out_dir, "示例项目.ecomap.json")
     C.save_config(cfg, path)

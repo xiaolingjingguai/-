@@ -40,7 +40,8 @@ def write_excel(path, ctx, check_rows, files):
     sheet(ws, "生态影响评价图件清单（评价等级：%s）" % ctx.cfg["eval_level"],
           ["序号", "图件名称", "要求", "HJ 19—2022 条款", "本次情况"], check_rows, [6, 34, 6, 34, 30])
     ws.append([])
-    ws.append(["注：●应编制；○涉及相应对象时编制；△可选；—导则未要求。分级为按导则正文条款归纳，序号1、2归为通用图件属推断，请复核。"])
+    ws.append(["注：表中列出本评价等级必须编制（●）的图件及本次另行勾选生成的图件；○涉及相应对象时编制，△可选。"
+               "分级系按 HJ 19—2022 正文条款归纳，地理位置图、水系图归为通用图件属推断，请复核。"])
     for name, rows in ctx.stats.items():
         ws = wb.create_sheet(name[:31])
         sheet(ws, name, ["类型", "面积（hm²）", "比例（%）"], rows, [30, 16, 12])

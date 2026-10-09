@@ -278,6 +278,7 @@ class App:
         self._tab_raster()
         self._tab_maps()
         self._tab_colors()
+        self._tab_data()
         self._tab_help()
 
         bot = ttk.Frame(root, padding=(8, 2, 8, 6))
@@ -313,7 +314,7 @@ class App:
                                  state="readonly" if k in ("eval_level", "page", "scale_mode") else "normal")
                 w.grid(row=i, column=1, sticky="w")
                 if k == "eval_level":
-                    w.bind("<<ComboboxSelected>>", lambda e: self.refresh_maps())
+                    w.bind("<<ComboboxSelected>>", lambda e: self.level_changed())
             else:
                 ttk.Entry(f, textvariable=self.iv[k], width=60).grid(row=i, column=1, sticky="w")
             if kind == "dir":
@@ -436,18 +437,19 @@ class App:
         pw.add(left, weight=3)
         cols = ("sel", "title", "req", "basis", "data")
         tv = ttk.Treeview(left, columns=cols, show="headings", height=18)
-        for c, t, w in zip(cols, ("生成", "图件", "要求", "HJ 19—2022 条款", "数据"), (50, 230, 50, 300, 200)):
+        for c, t, w in zip(cols, ("生成", "图件", "要求", "HJ 19—2022 条款", "数据"), (50, 230, 80, 280, 200)):
             tv.heading(c, text=t)
             tv.column(c, width=w, anchor="center" if c in ("sel", "req") else "w")
         tv.pack(fill="both", expand=True)
         tv.bind("<Button-1>", self._toggle_map)
         tv.bind("<Double-1>", lambda e: self.preview())
         self.tv = tv
-        self.lbl_req = ttk.Label(left, text="", foreground="#555", justify="left", wraplength=680)
+        self.lbl_req = ttk.Label(left, text="", foreground="#555", justify="left", wraplength=860)
         self.lbl_req.pack(fill="x", pady=4)
         bar = ttk.Frame(left)
         bar.pack(fill="x")
-        for t, cmd in (("全选", lambda: self._select_maps("all")), ("按等级勾选", lambda: self._select_maps("level")),
+        for t, cmd in (("只选必须图件", lambda: self._select_maps("level")), ("全选", lambda: self._select_maps("all")),
+                       ("全不选", lambda: self._select_maps("none")),
                        ("预览所选行", self.preview), ("生成全部勾选图件", self.run_all),
                        ("打开输出目录", self.open_out)):
             ttk.Button(bar, text=t, command=cmd).pack(side="left", padx=3)
@@ -485,6 +487,42 @@ class App:
         self.ctv.pack(fill="both", expand=True, pady=6)
         self.ctv.bind("<Double-1>", self.edit_color)
         self._swatches = {}
+
+    def _tab_data(self):
+        import ecomap_links as K
+        f = ttk.Frame(self.nb, padding=10)
+        self.nb.add(f, text="数据获取")
+        ttk.Label(f, text="一、可在线获取的数据（双击打开网站）", style="Head.TLabel").pack(anchor="w")
+        cols = ("cat", "site", "org", "data", "use", "url")
+        tv = ttk.Treeview(f, columns=cols, show="headings", height=len(K.LINKS))
+        for c, t, w in zip(cols, ("类别", "网站", "主办单位", "可获取的数据", "用于", "网址"),
+                           (70, 200, 170, 330, 140, 230)):
+            tv.heading(c, text=t)
+            tv.column(c, width=w, anchor="w")
+        for i, (cat, data, site, org, url, use) in enumerate(K.LINKS):
+            tv.insert("", "end", iid=str(i), values=(cat, site, org, data, use, url))
+        tv.bind("<Double-1>", lambda e: self._open_url(tv, e))
+        tv.pack(fill="x", pady=(4, 2))
+        ttk.Label(f, text="说明：网址已核实为对应单位主办；能否访问、是否需要注册登录，以网站当前情况为准。"
+                          "“科研机构”类不是政府官方发布的数据，只宜作参考或辅助解译。",
+                  foreground="#555").pack(anchor="w")
+        ttk.Label(f, text="二、不公开下载、须向主管部门申请的数据", style="Head.TLabel").pack(anchor="w", pady=(12, 0))
+        tv2 = ttk.Treeview(f, columns=("data", "where", "use"), show="headings", height=len(K.APPLY))
+        for c, t, w in zip(("data", "where", "use"), ("数据", "获取途径", "用于"), (360, 520, 200)):
+            tv2.heading(c, text=t)
+            tv2.column(c, width=w, anchor="w")
+        for r in K.APPLY:
+            tv2.insert("", "end", values=r)
+        tv2.pack(fill="x", pady=(4, 2))
+        ttk.Label(f, text="说明：以上数据通常无公开下载网址（信息不足以提供链接），须按程序向主管部门申请；"
+                          "1:10000、1:50000 地形图等测绘成果按国家涉密测绘成果管理规定使用，D.2 要求以标准地形图作工作底图。",
+                  foreground="#555", wraplength=1100, justify="left").pack(anchor="w")
+
+    def _open_url(self, tv, e):
+        import webbrowser
+        iid = tv.identify_row(e.y)
+        if iid:
+            webbrowser.open(tv.set(iid, "url"))
 
     def _tab_help(self):
         f = ttk.Frame(self.nb, padding=10)
@@ -613,11 +651,20 @@ class App:
             var.set(os.path.normpath(p))
 
     # ------------------------------------------------------------------ 图件表
+    def level_changed(self):
+        lvl = self.iv["eval_level"].get() or "三级"
+        self._select_maps("level")
+        names = [C.SPEC_BY_ID[i]["title"] for i in C.required_maps(lvl)]
+        self.log("评价等级改为%s：已勾选必须编制的 %d 幅图件（%s），其余图件请按项目情况自行勾选。"
+                 % (lvl, len(names), "、".join(names)))
+
     def refresh_maps(self):
         lvl = self.iv["eval_level"].get() or "三级"
         tv = self.tv
         tv.delete(*tv.get_children())
-        for s in C.MAP_SPECS:
+        order = {"●": 0, "○": 1, "△": 2, "—": 3}
+        specs = sorted(C.MAP_SPECS, key=lambda s: order.get(s["req"].get(lvl, "—"), 3))
+        for s in specs:
             needs = []
             for n in s["needs"]:
                 if n == "sensitive":
@@ -629,10 +676,20 @@ class App:
                 else:
                     needs.append((C.SLOT_NAMES[n], bool(self.rows[n].v["path"].get().strip())))
             data = "、".join(("✓" if ok else "缺") + nm for nm, ok in needs)
-            tv.insert("", "end", iid=s["id"], values=("☑" if self.map_sel.get(s["id"]) else "☐", s["title"],
-                                                     s["req"].get(lvl, "—"), s["basis"], data))
-        self.lbl_req.configure(text="当前评价等级：%s。●应编制；○涉及相应对象时编制；△可选；—导则未要求。"
-                                    "分级系按 HJ 19—2022 正文条款归纳，地理位置图、水系图归为通用图件属推断，请复核。" % lvl)
+            req = s["req"].get(lvl, "—")
+            tag = "must" if req == "●" else "other"
+            if tag == "must" and not all(ok for _, ok in needs):
+                tag = "must_missing"
+            tv.insert("", "end", iid=s["id"], tags=(tag,),
+                      values=("☑" if self.map_sel.get(s["id"]) else "☐", s["title"],
+                              "%s %s" % (req, C.REQ_TEXT[req]), s["basis"], data))
+        tv.tag_configure("must", foreground="#000000", font=("Microsoft YaHei", 9, "bold"))
+        tv.tag_configure("must_missing", foreground="#b00000", font=("Microsoft YaHei", 9, "bold"))
+        tv.tag_configure("other", foreground="#777777")
+        n = len(C.required_maps(lvl))
+        self.lbl_req.configure(text="%s评价必须编制的图件 %d 幅（加粗，排在前面，缺资料的显示为红色），改变评价等级时自动勾选；"
+                                    "其余图件（○涉及相应对象时编制、△可选、—导则未要求）请按项目情况自行勾选。"
+                                    "分级系按 HJ 19—2022 正文条款归纳，地理位置图、水系图归为通用图件属推断，请复核。" % (lvl, n))
 
     def _toggle_map(self, e):
         if self.tv.identify_column(e.x) != "#1":
@@ -644,8 +701,9 @@ class App:
 
     def _select_maps(self, mode):
         lvl = self.iv["eval_level"].get() or "三级"
+        req = set(C.required_maps(lvl))
         for s in C.MAP_SPECS:
-            self.map_sel[s["id"]] = True if mode == "all" else s["req"].get(lvl) in ("●", "○")
+            self.map_sel[s["id"]] = {"all": True, "none": False}.get(mode, s["id"] in req)
         self.refresh_maps()
 
     # ------------------------------------------------------------------ 配色
@@ -901,7 +959,13 @@ def main():
         return
     root = tk.Tk()
     app = App(root)
-    if "--demo-layers" in sys.argv:
+    if "--demo-maps" in sys.argv:
+        app.iv["eval_level"].set("三级")
+        app.level_changed()
+        app.nb.select(4)
+    elif "--demo-data" in sys.argv:
+        app.nb.select(6)
+    elif "--demo-layers" in sys.argv:
         app.load_sample()
         app.nb.select(1)
     elif "--demo" in sys.argv:

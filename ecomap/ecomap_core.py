@@ -16,7 +16,7 @@ import os
 
 import numpy as np
 
-VERSION = "0.1"
+VERSION = "0.2"
 VERSION_DATE = "2026-10-09"
 STD = "《环境影响评价技术导则 生态影响》（HJ 19—2022）"
 
@@ -85,6 +85,14 @@ MAP_SPECS = [
 ]
 SPEC_BY_ID = {s["id"]: s for s in MAP_SPECS}
 
+REQ_TEXT = {"●": "必须", "○": "涉及时", "△": "可选", "—": "未要求"}
+
+
+def required_maps(level):
+    """该评价等级必须编制（●）的图件 id。"""
+    return [s["id"] for s in MAP_SPECS if s["req"].get(level) == "●"]
+
+
 FVC_DEFAULT = {
     "ndvi": "", "red": "", "nir": "",
     "scale": 1.0, "offset": 0.0,
@@ -119,7 +127,7 @@ def default_config():
         "sensitive": [],          # [{"path","layer","name","field","source"}]
         "fvc": copy.deepcopy(FVC_DEFAULT),
         "colors": {},             # {图层key: {类别: "#rrggbb"}}
-        "maps": [s["id"] for s in MAP_SPECS],
+        "maps": required_maps("三级"),
     }
 
 
@@ -681,9 +689,13 @@ def checklist(ctx_or_cfg, generated=None):
     cfg = ctx_or_cfg.cfg if isinstance(ctx_or_cfg, Context) else ctx_or_cfg
     lvl = cfg.get("eval_level") or "三级"
     rows = []
-    for i, s in enumerate(MAP_SPECS, 1):
+    i = 0
+    for s in MAP_SPECS:
         req = s["req"].get(lvl, "—")
         g = generated.get(s["id"])
+        if req != "●" and not g:
+            continue
+        i += 1
         if g:
             st = "已生成 %d 幅" % len(g)
         elif isinstance(ctx_or_cfg, Context) and not all(ctx_or_cfg.has(n) for n in s["needs"]):
@@ -693,8 +705,8 @@ def checklist(ctx_or_cfg, generated=None):
             st = "未生成"
         rows.append((i, s["title"], req, s["basis"], st))
     rows.append((len(rows) + 1, "项目总平面布置图及施工总布置图", "●", "表D.1", "取自设计文件（CAD），本程序不生成"))
-    rows.append((len(rows) + 1, "线性工程平纵断面图", "○", "表D.1", "取自设计文件，本程序不生成"))
     rows.append((len(rows) + 1, "生态保护措施设计图", "●", "9.1.1", "取自设计文件，本程序不生成"))
+    rows.append((len(rows) + 1, "线性工程平纵断面图", "○", "表D.1", "线性工程时取自设计文件，本程序不生成"))
     return rows
 
 

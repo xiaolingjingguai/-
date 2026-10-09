@@ -56,6 +56,8 @@ jobs:
 
       - name: EXE 自检（示例项目出图、界面构建）
         shell: pwsh
+        env:
+          ECOMAP_SAMPLE_OUT: ${{ github.workspace }}\samples
         run: |
           $p = Start-Process -FilePath dist\${{ env.APP }}\${{ env.APP }}.exe -ArgumentList '--selftest', "$PWD\selftest.txt" -Wait -PassThru
           Get-Content selftest.txt -Encoding UTF8
@@ -65,12 +67,9 @@ jobs:
             throw "自检失败，退出码 $($p.ExitCode)"
           }
           Write-Output "::notice title=EXE 自检结果::$txt"
-          $out = (Select-String -Path selftest.txt -Pattern '示例输出目录：(.+)$' -Encoding UTF8).Matches[0].Groups[1].Value.Trim()
-          New-Item -ItemType Directory -Force samples | Out-Null
-          Copy-Item "$out\*.pdf", "$out\*.jpg", "$out\*.xlsx" samples\
+          Copy-Item samples\sample_landuse.jpg, samples\sample_occupy.jpg .
+          Remove-Item samples\sample_*.jpg, samples\*.json, samples\*.txt
           Compress-Archive -Path samples\* -DestinationPath sample_maps.zip -Force
-          Copy-Item "$out\03_土地利用现状图.jpg" sample_landuse.jpg
-          Copy-Item "$out\11_工程占用土地利用类型叠置图.jpg" sample_occupy.jpg
 
       - name: 界面截图
         shell: pwsh

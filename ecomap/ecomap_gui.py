@@ -875,6 +875,13 @@ def selftest(path):
         root.destroy()
         w("界面构建与配置读写：通过")
         w("示例输出目录：%s" % out)
+        dst = os.environ.get("ECOMAP_SAMPLE_OUT")
+        if dst:   # 构建流程用：把示例成果复制到指定目录
+            import shutil
+            shutil.copytree(out, dst, dirs_exist_ok=True)
+            for fn, alias in (("03_土地利用现状图.jpg", "sample_landuse.jpg"),
+                              ("11_工程占用土地利用类型叠置图.jpg", "sample_occupy.jpg")):
+                shutil.copy(os.path.join(out, fn), os.path.join(dst, alias))
     except Exception:
         ok = False
         w(traceback.format_exc())

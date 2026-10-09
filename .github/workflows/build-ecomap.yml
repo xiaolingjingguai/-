@@ -15,7 +15,7 @@ env:
   PYTHONIOENCODING: utf-8
   PYTHONUTF8: "1"
   APP: EcoMap_HJ19
-  VER: "0.2"
+  VER: "0.3"
 
 jobs:
   build:
@@ -28,7 +28,7 @@ jobs:
           python-version: "3.12"
 
       - name: 安装依赖
-        run: python -m pip install -r ecomap/requirements.txt pyinstaller==6.11.1 pyinstaller-hooks-contrib==2024.10
+        run: python -m pip install -r ecomap/requirements.txt cryptography==44.0.0 pyinstaller==6.11.1 pyinstaller-hooks-contrib==2024.10
 
       - name: 核实数据获取网址
         continue-on-error: true
@@ -42,7 +42,10 @@ jobs:
       - name: 制图核心校验（纯计算、示例项目全流程）
         run: python ecomap/tests/test_core.py
 
-      - name: 打包（PyInstaller，文件夹版）
+      - name: 授权机制校验（机器码、签发/验证、换机/篡改/到期）
+        run: python ecomap/tests/test_license.py
+
+      - name: 打包被保护程序（PyInstaller，文件夹版）
         run: >
           pyinstaller --noconfirm --windowed --onedir
           --name ${{ env.APP }}
@@ -53,6 +56,8 @@ jobs:
           --hidden-import ecomap_render
           --hidden-import ecomap_run
           --hidden-import ecomap_sample
+          --hidden-import license_verify
+          --hidden-import _ed25519_pure
           --hidden-import openpyxl
           --hidden-import matplotlib.backends.backend_tkagg
           --hidden-import matplotlib.backends.backend_pdf
@@ -61,9 +66,15 @@ jobs:
           --exclude-module PySide6
           --exclude-module IPython
           --exclude-module pytest
+          --exclude-module cryptography
           ecomap/ecomap_gui.py
 
-      - name: EXE 自检（示例项目出图、界面构建）
+      - name: 打包作者授权工具 EXE（授权码生成器 + 密钥生成器，可双击使用）
+        run: |
+          pyinstaller --noconfirm --onefile --windowed --name EcoMap_授权码生成器 --paths ecomap --hidden-import license_verify --hidden-import _ed25519_pure ecomap/tools/license_issuer.py
+          pyinstaller --noconfirm --onefile --console --name EcoMap_密钥生成器 ecomap/tools/make_keys.py
+
+      - name: EXE 自检（示例项目出图、界面构建、授权机制）
         shell: pwsh
         env:
           ECOMAP_SAMPLE_OUT: ${{ github.workspace }}\samples
@@ -80,14 +91,14 @@ jobs:
           Remove-Item samples\sample_*.jpg, samples\*.json, samples\*.txt
           Compress-Archive -Path samples\* -DestinationPath sample_maps.zip -Force
 
-      - name: 界面截图
+      - name: 界面截图（含软件授权页，试用态静默运行）
         shell: pwsh
         run: |
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
           $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
           $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
           $g = [System.Drawing.Graphics]::FromImage($bmp)
-          foreach ($m in @(@('--demo-maps','screenshot_maps.png'), @('--demo-data','screenshot_data.png'), @('--demo','screenshot_preview.png'))) {
+          foreach ($m in @(@('--demo-maps','screenshot_maps.png'), @('--demo-data','screenshot_data.png'), @('--demo-license','screenshot_license.png'), @('--demo','screenshot_preview.png'))) {
             $app = Start-Process -FilePath dist\${{ env.APP }}\${{ env.APP }}.exe -ArgumentList $m[0] -PassThru
             Start-Sleep -Seconds 30
             $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
@@ -95,18 +106,29 @@ jobs:
             Stop-Process -Id $app.Id -Force -ErrorAction SilentlyContinue
           }
 
-      - name: 打包 zip
+      - name: 打包被保护程序 zip
         shell: pwsh
         run: |
           Copy-Item ecomap\packaging\使用说明.txt dist\${{ env.APP }}\
+          Copy-Item ecomap\packaging\软件授权说明.md dist\${{ env.APP }}\
           Compress-Archive -Path dist\${{ env.APP }} -DestinationPath ${{ env.APP }}_v${{ env.VER }}_win64.zip -Force
           Get-Item ${{ env.APP }}_v${{ env.VER }}_win64.zip | Select-Object Name, Length
+
+      - name: 打包作者授权工具 zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force pkg\EcoMap_作者授权工具 | Out-Null
+          Copy-Item dist\EcoMap_授权码生成器.exe pkg\EcoMap_作者授权工具\
+          Copy-Item dist\EcoMap_密钥生成器.exe pkg\EcoMap_作者授权工具\
+          Copy-Item ecomap\packaging\软件授权说明.md pkg\EcoMap_作者授权工具\
+          Compress-Archive -Path pkg\EcoMap_作者授权工具 -DestinationPath EcoMap_作者授权工具_win64.zip -Force
 
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ env.APP }}_win64
           path: |
             ${{ env.APP }}_v${{ env.VER }}_win64.zip
+            EcoMap_作者授权工具_win64.zip
             selftest.txt
             screenshot_*.png
             sample_*.jpg
@@ -118,4 +140,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $tag = "ecomap-v${{ env.VER }}-build-${{ github.run_number }}"
-          gh release create $tag ${{ env.APP }}_v${{ env.VER }}_win64.zip selftest.txt screenshot_maps.png screenshot_data.png screenshot_preview.png sample_landuse.jpg sample_occupy.jpg sample_maps.zip --target ${{ github.sha }} --prerelease --title "生态影响评价制图 Windows 版 v${{ env.VER }}（构建 ${{ github.run_number }}）" --notes "依据 HJ 19—2022 的生态制图程序，由 GitHub Actions 在 windows-latest 上自动构建，已通过程序自检。下载 ${{ env.APP }}_v${{ env.VER }}_win64.zip，解压后运行 ${{ env.APP }}.exe。sample_maps.zip 为虚构示例项目的出图样张。"
+          gh release create $tag ${{ env.APP }}_v${{ env.VER }}_win64.zip EcoMap_作者授权工具_win64.zip selftest.txt screenshot_maps.png screenshot_data.png screenshot_license.png screenshot_preview.png sample_landuse.jpg sample_occupy.jpg sample_maps.zip --target ${{ github.sha }} --prerelease --title "生态影响评价制图 Windows 版 v${{ env.VER }}（构建 ${{ github.run_number }}）" --notes "依据 HJ 19—2022 的生态制图程序，已加入机器绑定的离线授权（许可）与启动门禁。由 GitHub Actions 在 windows-latest 上自动构建并通过自检。${{ env.APP }}_v${{ env.VER }}_win64.zip 为发给用户的被保护程序（解压后运行 ${{ env.APP }}.exe，未授权可试用 30 分钟）；EcoMap_作者授权工具_win64.zip 为作者端的授权码生成器与密钥生成器。授权机制见软件授权说明.md。"

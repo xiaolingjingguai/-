@@ -24,6 +24,7 @@ import tkinter as tk
 from tkinter import colorchooser, filedialog, messagebox, ttk
 
 import ecomap_core as C
+import license_verify as LV
 
 APP_NAME = "生态影响评价制图"
 TITLE = "%s %s（依据 HJ 19—2022）" % (APP_NAME, C.VERSION)
@@ -279,6 +280,7 @@ class App:
         self._tab_maps()
         self._tab_colors()
         self._tab_data()
+        self._tab_license()
         self._tab_help()
 
         bot = ttk.Frame(root, padding=(8, 2, 8, 6))
@@ -524,6 +526,80 @@ class App:
         iid = tv.identify_row(e.y)
         if iid:
             webbrowser.open(tv.set(iid, "url"))
+
+    def _tab_license(self):
+        f = ttk.Frame(self.nb, padding=14)
+        self.nb.add(f, text="软件授权")
+        ttk.Label(f, text="软件授权（机器绑定，离线使用）", style="Head.TLabel").grid(
+            row=0, column=0, columnspan=3, sticky="w", pady=(0, 6))
+        state, payload, reason = LV.license_state()
+        if state == "licensed":
+            name = payload.get("name") or "（未填名称）"
+            exp = payload.get("expiry") or "永久"
+            stxt = "已授权：授权给 %s，到期 %s" % (name, exp)
+            scol = "#1a7f37"
+        elif state == "trial":
+            mins = max(1, (int(payload) + 59) // 60)
+            stxt = "未授权，试用中：本次剩余约 %d 分钟" % mins
+            scol = "#9a6a00"
+        else:
+            stxt = "未授权，试用已用完：%s" % reason
+            scol = "#b00020"
+        ttk.Label(f, text="当前状态：" + stxt, foreground=scol).grid(row=1, column=0, columnspan=3, sticky="w",
+                                                                   pady=(0, 10))
+        ttk.Label(f, text="本机机器码（请复制后发给软件作者申请授权）：").grid(row=2, column=0, columnspan=3, sticky="w")
+        self._lic_code = tk.StringVar(value=LV.machine_code())
+        ent = ttk.Entry(f, textvariable=self._lic_code, width=26, font=("Consolas", 13), justify="center")
+        ent.grid(row=3, column=0, sticky="w", pady=(4, 6))
+        ent.configure(state="readonly")
+
+        def copy_code():
+            try:
+                self.root.clipboard_clear()
+                self.root.clipboard_append(self._lic_code.get())
+                bcopy.configure(text="已复制 ✓")
+                self.root.after(1500, lambda: bcopy.configure(text="复制机器码"))
+            except Exception:
+                pass
+
+        bcopy = ttk.Button(f, text="复制机器码", command=copy_code)
+        bcopy.grid(row=3, column=1, sticky="w", padx=6)
+
+        def import_license():
+            p = filedialog.askopenfilename(title="选择授权文件 license.key",
+                                           filetypes=[("授权文件", "*.key"), ("全部", "*.*")])
+            if not p:
+                return
+            try:
+                with open(p, encoding="utf-8") as fh:
+                    raw = fh.read()
+            except Exception as e:
+                messagebox.showerror(APP_NAME, "读取失败：%s" % e)
+                return
+            ok, info, rs = LV.verify_license_bytes(raw)
+            if not ok:
+                messagebox.showerror("授权无效", rs)
+                return
+            import shutil
+            dst = os.path.join(os.path.dirname(LV._license_path()), LV.LICENSE_FILENAME)
+            try:
+                shutil.copyfile(p, dst)
+            except Exception as e:
+                messagebox.showerror(APP_NAME, "无法写入授权文件：%s\n请手动把 license.key 放到程序所在目录。" % e)
+                return
+            messagebox.showinfo("授权成功", "授权已导入（授权给 %s，到期 %s）。\n重启软件后生效。"
+                                % (info.get("name") or "（未填）", info.get("expiry") or "永久"))
+
+        ttk.Button(f, text="导入授权文件 license.key…", command=import_license).grid(
+            row=4, column=0, columnspan=2, sticky="w", pady=(2, 10))
+        tip = ("使用步骤：\n"
+               "1. 把上面的机器码复制后发给软件作者；\n"
+               "2. 作者用“授权码生成器”签发与本机绑定的 license.key，发回给您；\n"
+               "3. 点上面“导入授权文件”选择它（或把 license.key 放到本程序 exe 同一目录），重启软件即生效。\n\n"
+               "说明：授权与本机机器码绑定，换机需重新申请；全过程离线，不联网。授权机制与防护边界见随附"
+               "“软件授权说明.md”。")
+        ttk.Label(f, text=tip, justify="left", foreground="#555", wraplength=760).grid(
+            row=5, column=0, columnspan=3, sticky="w")
 
     def _tab_help(self):
         f = ttk.Frame(self.nb, padding=10)
@@ -933,6 +1009,29 @@ def selftest(path):
         root.update()
         root.destroy()
         w("界面构建与配置读写：通过")
+        # 授权机制自检：机器码稳定、演示私钥签发的授权可被对应公钥验证、换机/篡改被拒
+        import importlib
+        import license_verify as _LV
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "tools"))
+        code = _LV.machine_code()
+        assert code == _LV.machine_code() and "-" in code
+        try:
+            import license_issuer as _LI
+            from cryptography.hazmat.primitives import serialization as _ser
+            demo_key = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tools", "keys_demo",
+                                    "private_demo.pem")
+            with open(demo_key, "rb") as fh:
+                dpub = _ser.load_pem_private_key(fh.read(), password=None).public_key().public_bytes(
+                    _ser.Encoding.Raw, _ser.PublicFormat.Raw).hex()
+            text, _ = _LI.make_license(code, "自检", None, demo_key)
+            okL, _, _ = _LV.verify_license_bytes(text, code, public_key_hex=dpub)
+            okM, _, rM = _LV.verify_license_bytes(text, "AAAA-BBBB-CCCC-DDDD", public_key_hex=dpub)
+            w("授权机制：机器码 %s；签发/验证 %s；换机拒绝 %s" % (code, "通过" if okL else "失败",
+                                                      "通过" if (not okM) else "失败"))
+            if not (okL and not okM):
+                ok = False
+        except ImportError:
+            w("授权机制：机器码 %s（打包版不含签发工具 cryptography，跳过签发校验）" % code)
         w("示例输出目录：%s" % out)
         dst = os.environ.get("ECOMAP_SAMPLE_OUT")
         if dst:   # 构建流程用：把示例成果复制到指定目录
@@ -954,12 +1053,54 @@ def selftest(path):
 def main():
     if len(sys.argv) >= 3 and sys.argv[1] == "--selftest":
         sys.exit(selftest(sys.argv[2]))
+    if "--print-machine" in sys.argv:
+        print(LV.machine_code())
+        sys.exit(0)
     if len(sys.argv) >= 3 and sys.argv[1] == "--batch":
+        # 命令行批量出图同样受授权约束
+        state, _, reason = LV.license_state()
+        if state == "expired":
+            print("未授权，试用已用完：%s（机器码 %s）" % (reason, LV.machine_code()))
+            sys.exit(2)
         import ecomap_run as RUN
         RUN.run(C.load_config(sys.argv[2]))
         return
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            ctypes.windll.shcore.SetProcessDpiAwareness(1)
+        except Exception:
+            pass
+    # 启动门禁：已授权直接运行；未授权则给予首次试用，到时弹授权窗并锁定；试用用完则直接要求授权
+    demo_mode = any(a.startswith("--demo") for a in sys.argv)   # 截图/演示模式：静默试用，不弹试用提示框
+    state, payload, reason = LV.license_state()
+    if state == "expired" and not demo_mode:
+        LV.show_gate(None, "试用时间已用完（共 %d 分钟），请授权后继续使用。" % LV.TRIAL_MINUTES)
+        return
     root = tk.Tk()
     app = App(root)
+    if "--demo-license" in sys.argv:
+        app.nb.select(7)
+    elif state == "trial" and not demo_mode:
+        remaining = max(1, int(payload))
+        mins = max(1, (remaining + 59) // 60)
+        try:
+            messagebox.showinfo("试用", "未检测到授权，您可先试用本软件。\n"
+                                "本次试用剩余约 %d 分钟，到时将提示授权。\n"
+                                "如需长期使用，请在“软件授权”页复制机器码发给作者申请。" % mins)
+        except Exception:
+            pass
+
+        def _on_trial_end():
+            try:
+                LV.show_gate(root, "试用时间已到（共 %d 分钟），请授权后继续使用。" % LV.TRIAL_MINUTES)
+            finally:
+                try:
+                    root.destroy()
+                except Exception:
+                    pass
+
+        root.after(remaining * 1000, _on_trial_end)
     if "--demo-maps" in sys.argv:
         app.iv["eval_level"].set("三级")
         app.level_changed()

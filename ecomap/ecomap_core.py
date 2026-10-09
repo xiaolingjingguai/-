@@ -16,7 +16,7 @@ import os
 
 import numpy as np
 
-VERSION = "0.2"
+VERSION = "0.3"
 VERSION_DATE = "2026-10-09"
 STD = "《环境影响评价技术导则 生态影响》（HJ 19—2022）"
 

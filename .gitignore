@@ -2,3 +2,10 @@ __pycache__/
 build/
 dist/
 *.spec
+
+# 授权私钥与授权文件（切勿入库／随程序分发）
+author_private.pem
+**/keys/author_private.pem
+*/keys/*.pem
+license.key
+公钥_PUBLIC_KEY.txt

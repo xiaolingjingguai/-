@@ -879,8 +879,9 @@ def selftest(path):
         if dst:   # 构建流程用：把示例成果复制到指定目录
             import shutil
             shutil.copytree(out, dst, dirs_exist_ok=True)
-            for fn, alias in (("03_土地利用现状图.jpg", "sample_landuse.jpg"),
-                              ("11_工程占用土地利用类型叠置图.jpg", "sample_occupy.jpg")):
+            for suffix, alias in (("_土地利用现状图.jpg", "sample_landuse.jpg"),
+                                  ("_工程占用土地利用类型叠置图.jpg", "sample_occupy.jpg")):
+                fn = next(f for f in os.listdir(out) if f.endswith(suffix))
                 shutil.copy(os.path.join(out, fn), os.path.join(dst, alias))
     except Exception:
         ok = False

@@ -503,9 +503,10 @@ class App:
             tv.insert("", "end", iid=str(i), values=(cat, site, org, data, use, url))
         tv.bind("<Double-1>", lambda e: self._open_url(tv, e))
         tv.pack(fill="x", pady=(4, 2))
-        ttk.Label(f, text="说明：网址已核实为对应单位主办；能否访问、是否需要注册登录，以网站当前情况为准。"
-                          "“科研机构”类不是政府官方发布的数据，只宜作参考或辅助解译。",
-                  foreground="#555").pack(anchor="w")
+        ttk.Label(f, text="说明：以上网址于 %s 访问核实可打开，主办单位已核对；是否需要注册登录、数据范围以网站当前情况为准。"
+                          "“科研机构”类不是政府官方发布的数据，只宜作参考或辅助解译。\n"
+                          "以下站点未能核实网址，故未收录（信息不足）：%s。" % (K.VERIFIED_DATE, "、".join(K.NOT_VERIFIED)),
+                  foreground="#555", wraplength=1100, justify="left").pack(anchor="w")
         ttk.Label(f, text="二、不公开下载、须向主管部门申请的数据", style="Head.TLabel").pack(anchor="w", pady=(12, 0))
         tv2 = ttk.Treeview(f, columns=("data", "where", "use"), show="headings", height=len(K.APPLY))
         for c, t, w in zip(("data", "where", "use"), ("数据", "获取途径", "用于"), (360, 520, 200)):

@@ -6,14 +6,6 @@
 LINKS = [
     ("政府官方", "全国 1:100 万等公众版基础地理信息数据（水系、行政区划、道路等）", "全国地理信息资源目录服务系统",
      "国家基础地理信息中心", "https://www.webmap.cn", "地表水系、行政区划"),
-    ("政府官方", "在线地图、影像底图；开发者 key（本软件天地图底图须用）", "天地图（国家地理信息公共服务平台）",
-     "自然资源部", "https://www.tianditu.gov.cn", "参考底图"),
-    ("政府官方", "天地图开发者 key 申请（控制台）", "天地图控制台", "自然资源部", "https://console.tianditu.gov.cn",
-     "参考底图"),
-    ("政府官方", "标准地图（带审图号，地理位置图示意底图）", "标准地图服务系统", "自然资源部", "http://bzdt.ch.mnr.gov.cn",
-     "地理位置图"),
-    ("政府官方", "国产陆地观测卫星影像（高分系列等）", "陆地观测卫星数据服务平台", "中国资源卫星应用中心",
-     "https://data.cresda.cn", "遥感影像、植被覆盖度"),
     ("国际官方", "Sentinel-2 L2A 影像（10 m，植被覆盖度）", "Copernicus Data Space Ecosystem",
      "欧盟哥白尼计划（ESA 指导）", "https://dataspace.copernicus.eu", "遥感影像、植被覆盖度"),
     ("国际官方", "Landsat 8/9 Collection 2 L2 影像、DEM", "EarthExplorer", "美国地质调查局（USGS）",
@@ -36,4 +28,11 @@ APPLY = [
     ("重点保护野生动植物分布、古树名木", "林业主管部门、保护地管理机构，结合现场调查", "生态保护目标"),
 ]
 
-VERIFIED = {}   # 网址 → 核实说明，由 check_links 结果整理后填写
+# 2026-10-09 在 GitHub Actions（windows-latest）上用 tools/check_links.py 访问核实：
+#   webmap.cn、resdc.cn 返回 200（页面为脚本动态加载，主办单位据 SuperMap 帮助文档“资源获取”页核对）；
+#   dataspace.copernicus.eu、earthexplorer.usgs.gov、gscloud.cn 返回 200，页面标题与站名一致。
+# 未能核实、因此未收录：天地图 tianditu.gov.cn（返回 418 拒绝访问）、天地图控制台 console.tianditu.gov.cn
+#   与标准地图服务 bzdt.ch.mnr.gov.cn（域名无法解析）、中国资源卫星应用中心 data.cresda.cn（返回 403）。
+VERIFIED_DATE = "2026-10-09"
+NOT_VERIFIED = ["天地图（国家地理信息公共服务平台，自然资源部）", "天地图开发者控制台（申请 key）",
+                "标准地图服务系统（自然资源部）", "中国资源卫星应用中心数据服务平台"]

@@ -25,8 +25,11 @@ jobs:
       - name: 计算核心自校验
         run: python tests/test_calc.py
 
-      - name: 安装 PyInstaller 与导出依赖
-        run: python -m pip install pyinstaller==6.11.1 openpyxl==3.1.5
+      - name: 安装 PyInstaller 与依赖
+        run: python -m pip install pyinstaller==6.11.1 openpyxl==3.1.5 cryptography==44.0.0
+
+      - name: 许可机制自测
+        run: python tests/test_license.py
 
       - name: 打包 EXE
         run: >
@@ -81,10 +84,32 @@ jobs:
           Get-Content selftest.txt -Encoding UTF8
           if ($p.ExitCode -ne 0) { throw "自检失败，退出码 $($p.ExitCode)" }
 
-      - name: 界面截图
+      - name: 打包作者授权工具 EXE（授权码生成器 + 密钥生成器，可双击使用）
+        run: |
+          pyinstaller --noconfirm --onefile --windowed --name HJ169_授权码生成器 --paths app --hidden-import license_verify --hidden-import _ed25519_pure tools/license_issuer.py
+          pyinstaller --noconfirm --onefile --console --name HJ169_密钥生成器 tools/make_keys.py
+
+      - name: 构建截图用演示版（临时内嵌演示公钥，仅 CI 截图用，不发布）
         shell: pwsh
         run: |
-          $app = Start-Process -FilePath dist\HJ169_Calculator.exe -ArgumentList '--demo-risk' -PassThru
+          $demo = "9c4215f9cca756438bb2110b0de6bfe5cee4b7a5ac8adf22ebc354cc1e31ba1e"
+          Copy-Item app\license_verify.py "$env:RUNNER_TEMP\lv.bak"
+          (Get-Content app\license_verify.py -Raw) -replace 'PUBLIC_KEY_HEX = "[0-9a-fA-F]+"', "PUBLIC_KEY_HEX = `"$demo`"" | Set-Content -NoNewline app\license_verify.py
+          pyinstaller --noconfirm --onefile --windowed --name HJ169_Calculator_demo --add-data "app/data;data" --paths app --hidden-import openpyxl --exclude-module docx --exclude-module lxml --exclude-module numpy --exclude-module PIL --exclude-module pandas --exclude-module ssl --exclude-module _ssl --exclude-module sqlite3 --exclude-module _sqlite3 --exclude-module unittest --exclude-module pydoc --exclude-module xmlrpc --exclude-module lib2to3 --exclude-module distutils --exclude-module setuptools --exclude-module pkg_resources --exclude-module bz2 --exclude-module _bz2 --exclude-module lzma --exclude-module _lzma --exclude-module asyncio --exclude-module multiprocessing --exclude-module pdb --exclude-module doctest --exclude-module ftplib --exclude-module imaplib --exclude-module smtplib --exclude-module poplib --exclude-module nntplib --exclude-module telnetlib --exclude-module curses --exclude-module _ctypes_test --exclude-module test app/hj169_gui.py
+          Copy-Item "$env:RUNNER_TEMP\lv.bak" app\license_verify.py -Force
+
+      - name: 为截图演示版签发授权（演示私钥；正式版内嵌作者公钥，CI 无作者私钥，故另用演示版截图）
+        shell: pwsh
+        run: |
+          $code = python -c "import sys; sys.path.insert(0,'app'); import license_verify as L; print(L.machine_code())"
+          Write-Host "CI 机器码：$code"
+          python tools\license_issuer.py sign --machine "$code" --name "CI 演示" --key tools\keys_demo\private_demo.pem --allow-mismatch --out dist\license.key
+          Get-Content dist\license.key -Encoding UTF8
+
+      - name: 界面截图（演示版）
+        shell: pwsh
+        run: |
+          $app = Start-Process -FilePath dist\HJ169_Calculator_demo.exe -ArgumentList '--demo-risk' -PassThru
           Start-Sleep -Seconds 12
           Add-Type -AssemblyName System.Windows.Forms, System.Drawing
           $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
@@ -93,7 +118,7 @@ jobs:
           $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
           $bmp.Save("$PWD\screenshot.png")
           Stop-Process -Id $app.Id -Force
-          $app = Start-Process -FilePath dist\HJ169_Calculator.exe -ArgumentList '--demo-grade' -PassThru
+          $app = Start-Process -FilePath dist\HJ169_Calculator_demo.exe -ArgumentList '--demo-grade' -PassThru
           Start-Sleep -Seconds 12
           $g.CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
           $bmp.Save("$PWD\screenshot_grade.png")
@@ -109,11 +134,21 @@ jobs:
           Copy-Item sample_report.docx, sample_report.xlsx pkg\HJ169_Calculator\
           Compress-Archive -Path pkg\HJ169_Calculator -DestinationPath HJ169_Calculator_v1.1_win64.zip -Force
 
+      - name: 打包作者授权工具 zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force pkg\HJ169_作者授权工具 | Out-Null
+          Copy-Item dist\HJ169_授权码生成器.exe pkg\HJ169_作者授权工具\
+          Copy-Item dist\HJ169_密钥生成器.exe pkg\HJ169_作者授权工具\
+          Copy-Item packaging\软件授权说明.md pkg\HJ169_作者授权工具\
+          Compress-Archive -Path pkg\HJ169_作者授权工具 -DestinationPath HJ169_作者授权工具_win64.zip -Force
+
       - uses: actions/upload-artifact@v4
         with:
           name: HJ169_Calculator_win64
           path: |
             HJ169_Calculator_v1.1_win64.zip
+            HJ169_作者授权工具_win64.zip
             screenshot.png
             screenshot_grade.png
             selftest.txt
@@ -126,4 +161,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $tag = "build-${{ github.run_number }}"
-          gh release create $tag HJ169_Calculator_v1.1_win64.zip screenshot.png screenshot_grade.png selftest.txt sample_report.docx sample_report.xlsx --target ${{ github.sha }} --prerelease --title "HJ 169 风险计算器 Windows 版（构建 ${{ github.run_number }}）" --notes "由 GitHub Actions 在 windows-latest 上自动构建，已通过程序自检。"
+          gh release create $tag HJ169_Calculator_v1.1_win64.zip HJ169_作者授权工具_win64.zip screenshot.png screenshot_grade.png selftest.txt sample_report.docx sample_report.xlsx --target ${{ github.sha }} --prerelease --title "HJ 169 风险计算器 Windows 版（构建 ${{ github.run_number }}）" --notes "由 GitHub Actions 在 windows-latest 上自动构建，已通过程序自检。含被保护程序 HJ169_Calculator（v1.1）与作者授权工具（授权码生成器 + 密钥生成器）。"

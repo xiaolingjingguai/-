@@ -14,6 +14,7 @@ from tkinter import filedialog, messagebox, ttk
 import hj169calc as H
 import report_export as RX
 import selfcheck
+import license_verify
 
 APP_NAME = "HJ 169 风险计算器"
 APP_VER = "%s（%s）" % (H.VERSION, H.VERSION_DATE)
@@ -1796,14 +1797,44 @@ def selftest(path):
 def main():
     if len(sys.argv) >= 3 and sys.argv[1] == "--selftest":
         sys.exit(selftest(sys.argv[2]))
+    if "--print-machine" in sys.argv:
+        print(license_verify.machine_code())
+        sys.exit(0)
     if sys.platform == "win32":
         try:
             import ctypes
             ctypes.windll.shcore.SetProcessDpiAwareness(1)
         except Exception:
             pass
+    # 启动门禁：已授权直接运行；未授权则给予首次试用，到时弹授权窗并锁定；试用用完则直接要求授权
+    state, payload, reason = license_verify.license_state()
+    if state == "expired":
+        license_verify.show_gate(None, "试用时间已用完（共 %d 分钟），请授权后继续使用。"
+                                 % license_verify.TRIAL_MINUTES)
+        return
     root = tk.Tk()
     app = App(root)
+    if state == "trial":
+        remaining = max(1, int(payload))
+        mins = max(1, (remaining + 59) // 60)
+        try:
+            from tkinter import messagebox
+            messagebox.showinfo("试用", "未检测到授权，您可先试用本软件。\n"
+                                "本次试用剩余约 %d 分钟，到时将提示授权。" % mins)
+        except Exception:
+            pass
+
+        def _on_trial_end():
+            try:
+                license_verify.show_gate(root, "试用时间已到（共 %d 分钟），请授权后继续使用。"
+                                         % license_verify.TRIAL_MINUTES)
+            finally:
+                try:
+                    root.destroy()
+                except Exception:
+                    pass
+
+        root.after(remaining * 1000, _on_trial_end)
     if "--demo-risk" in sys.argv:
         app.nb.select(1)
     if "--demo-grade" in sys.argv:

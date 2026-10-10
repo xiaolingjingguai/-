@@ -1,0 +1,77 @@
+name: 构建 Windows 程序
+
+on:
+  push:
+    branches: [ "claude/**", "main", "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  PYTHONIOENCODING: utf-8
+  PYTHONUTF8: "1"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt cryptography==44.0.0
+
+      - name: 许可机制自测
+        run: python test_license.py
+
+      - name: 打包 EXE（内置机器绑定授权）
+        run: >
+          pyinstaller --noconfirm --onefile --windowed
+          --name EnvQualityWorkbench
+          --collect-submodules fontTools.ttLib.tables
+          --add-data "tools;tools"
+          --paths .
+          --hidden-import license_verify
+          --hidden-import _ed25519_pure
+          app.py
+
+      - name: EXE 体积
+        shell: pwsh
+        run: Get-Item dist\EnvQualityWorkbench.exe | Select-Object Name, Length
+
+      - name: EXE 自检（界面构建、各模块载入）
+        shell: pwsh
+        run: |
+          $code = & dist\EnvQualityWorkbench.exe --print-machine
+          Write-Host "CI 机器码：$code"
+          $p = Start-Process -FilePath dist\EnvQualityWorkbench.exe -ArgumentList '--selftest' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "自检失败，退出码 $($p.ExitCode)" }
+          Write-Host "自检通过"
+
+      - name: 打包 zip
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force pkg\EnvQualityWorkbench | Out-Null
+          Copy-Item dist\EnvQualityWorkbench.exe pkg\EnvQualityWorkbench\
+          if (Test-Path 使用说明.md) { Copy-Item 使用说明.md pkg\EnvQualityWorkbench\ }
+          if (Test-Path 软件授权说明.md) { Copy-Item 软件授权说明.md pkg\EnvQualityWorkbench\ }
+          Compress-Archive -Path pkg\EnvQualityWorkbench -DestinationPath EnvQualityWorkbench_win64.zip -Force
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: EnvQualityWorkbench_win64
+          path: EnvQualityWorkbench_win64.zip
+
+      - name: 发布到 Releases
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $tag = "envq-${{ github.run_number }}"
+          gh release create $tag EnvQualityWorkbench_win64.zip --target ${{ github.sha }} --prerelease --title "环境质量判定工作台 Windows 版（构建 ${{ github.run_number }}）" --notes "由 GitHub Actions 在 windows-latest 上自动构建，已通过许可自测与程序自检。内置机器绑定离线授权（首次可试用 30 分钟），授权与 HJ169 风险计算器通用（同一把作者公钥）。"

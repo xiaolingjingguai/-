@@ -1,0 +1,6 @@
+pdfplumber
+openpyxl
+python-docx
+PySide6-Essentials
+pyinstaller
+fonttools

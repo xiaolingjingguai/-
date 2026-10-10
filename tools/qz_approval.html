@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<!-- saved from url=(0240)https://p26-flow-sign.byteimg.com/tos-cn-i-ik7evvg4ik/rc/pc/super_tool/1177ca8189aa426d87314e48f309f0a4.html?lk3s=8e244e95&rcl=202609301140074A48E3F2A7CABAB9F785&rrcfp=cb23d0ed&x-expires=1791344448&x-signature=1LHRF50PjuNMFewoRHtTx9TyIBU%3D -->
+<html lang="zh-CN"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>泉州环评审批工作台</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    background:#eef3ef; color:#1f2937; line-height:1.55;
+    padding:14px 12px 44px; min-height:100vh;
+  }
+  .wrap{max-width:640px;margin:0 auto}
+  header{text-align:center;margin:4px 0 14px}
+  h1{font-size:21px;font-weight:800;color:#14532d;letter-spacing:.5px}
+  .sub{font-size:12.5px;color:#6b7280;margin-top:3px}
+  .warn{background:#fef3c7;border:1px solid #fde68a;color:#92400e;font-size:12px;border-radius:11px;padding:9px 12px;margin-bottom:12px;line-height:1.6}
+  .card{background:#fff;border-radius:14px;padding:16px 15px;margin-bottom:12px;box-shadow:0 1px 3px rgba(16,24,40,.07)}
+  .sec{font-size:15px;font-weight:800;color:#166534;margin-bottom:13px;display:flex;align-items:center;gap:8px}
+  .sec .n{flex:0 0 auto;width:23px;height:23px;border-radius:50%;background:#16a34a;color:#fff;font-size:13px;display:flex;align-items:center;justify-content:center}
+  .lbl{font-size:13.5px;font-weight:600;margin:13px 0 6px;color:#374151}
+  .lbl:first-child{margin-top:0}
+  .req{color:#dc2626}
+  .radios{display:flex;flex-wrap:wrap;gap:8px}
+  .radio{display:flex;align-items:center;gap:6px;padding:9px 16px;border:1.5px solid #d1d5db;border-radius:99px;font-size:14px;cursor:pointer;background:#fff;transition:all .12s}
+  .radio input{margin:0;accent-color:#16a34a;width:15px;height:15px}
+  .radio.on{background:#ecfdf5;border-color:#16a34a;color:#166534;font-weight:700}
+  select,.input{width:100%;padding:12px;border:1.5px solid #d1d5db;border-radius:11px;font-size:15px;background:#fff;color:#1f2937;min-height:46px}
+  select:focus,.input:focus{outline:2px solid #16a34a;outline-offset:-1px;border-color:transparent}
+  .searchbox{position:relative}
+  .sug{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1px solid #d1d5db;border-radius:12px;max-height:280px;overflow-y:auto;z-index:60;box-shadow:0 10px 30px rgba(16,24,40,.16);display:none}
+  .sug.show{display:block}
+  .sug .si{padding:12px 14px;font-size:13.5px;border-bottom:1px solid #f3f4f6;cursor:pointer}
+  .sug .si:last-child{border-bottom:none}
+  .sug .si:active{background:#f0fdf4}
+  .sug .si .nm{font-weight:600}
+  .sug .si .tag{font-size:11px;padding:1px 7px;border-radius:99px;margin-left:6px;vertical-align:1px}
+  .tag.bs{background:#fef2f2;color:#b91c1c}
+  .tag.bt{background:#fef3c7;color:#b45309}
+  .tag.dj{background:#ecfdf5;color:#0e9f6e}
+  .sug .empty{padding:14px;font-size:13px;color:#6b7280;text-align:center}
+  .pick{display:none;margin-top:11px;background:#f6faf7;border:1.5px solid #bbe6c8;border-radius:12px;padding:13px}
+  .pick.show{display:block}
+  .pick .pname{font-size:14px;font-weight:800;color:#166534;margin-bottom:6px}
+  .pcond{font-size:12.5px;color:#374151;margin-bottom:9px}
+  .pcond .row{margin:3px 0}
+  .pcond b.bs{color:#b91c1c}
+  .pcond b.bt{color:#b45309}
+  .pcond b.dj{color:#0e9f6e}
+  .catbtns{display:flex;gap:7px}
+  .catbtn{flex:1;text-align:center;padding:11px 2px;border:1.5px solid #d1d5db;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;background:#fff;color:#6b7280;transition:all .12s}
+  .catbtn.on{background:#16a34a;border-color:#16a34a;color:#fff}
+  .hint{font-size:12px;color:#6b7280;margin-top:7px;line-height:1.6}
+  .indCard{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:10px;margin-top:8px}
+  .indCard .info{flex:1;min-width:0;padding-right:10px}
+  .indCard .nm{font-size:13.5px;font-weight:700;color:#166534;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .indCard .cond{font-size:11.5px;color:#6b7280;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .indCard .badge{flex:0 0 auto;padding:3px 10px;border-radius:99px;font-size:12px;font-weight:700;margin-right:8px}
+  .indCard .badge.bs{background:#fef2f2;color:#b91c1c}
+  .indCard .badge.bt{background:#fef3c7;color:#b45309}
+  .indCard .badge.dj{background:#ecfdf5;color:#0e9f6e}
+  .indCard .del{flex:0 0 auto;width:26px;height:26px;border-radius:50%;border:none;background:#fee2e2;color:#dc2626;font-size:15px;cursor:pointer;line-height:1}
+  .indCard .del:hover{background:#fecaca}
+  .specrow{display:none;margin-top:11px;padding-top:11px;border-top:1px dashed #d1d5db}
+  .specrow.show{display:block}
+  .go{width:100%;border:none;background:#16a34a;color:#fff;font-size:17px;font-weight:800;padding:15px;border-radius:13px;cursor:pointer;letter-spacing:3px;box-shadow:0 3px 8px rgba(22,163,74,.3);min-height:52px}
+  .go:active{background:#15803d}
+  .res{display:none;background:#fff;border:1px solid #a7f3d0;border-left:6px solid #16a34a;border-radius:14px;padding:16px;margin-top:14px}
+  .res.show{display:block}
+  .res h3{font-size:16px;color:#166534;margin-bottom:11px;display:flex;align-items:center;gap:7px}
+  .res h3::before{content:'';width:8px;height:8px;border-radius:50%;background:#16a34a;display:inline-block}
+  .rr{font-size:13.5px;margin-bottom:8px}
+  .rr .lab{color:#6b7280;display:inline-block;min-width:74px}
+  .rr b{color:#111827}
+  .bd{display:inline-block;font-size:12.5px;font-weight:700;padding:2px 12px;border-radius:99px;margin:0 3px 3px 0}
+  .bd.bs{background:#fef2f2;color:#b91c1c}
+  .bd.bt{background:#fef3c7;color:#b45309}
+  .bd.dj{background:#ecfdf5;color:#0e9f6e}
+  .branch{margin-top:9px;padding-top:9px;border-top:1px dashed #e5e7eb}
+  .branch .bt{font-size:12.5px;font-weight:700;color:#374151;margin-bottom:5px}
+  .branch .brow{font-size:12.5px;color:#374151;margin:4px 0;padding-left:9px;border-left:3px solid #d1d5db}
+  .branch .brow b{color:#166534}
+  .ref{font-size:12px;color:#6b7280;background:#f9fafb;border-radius:9px;padding:9px 11px;margin-top:10px;border-left:3px solid #16a34a;line-height:1.7;white-space:pre-wrap}
+  .copy{width:100%;margin-top:11px;padding:12px;border:1.5px solid #16a34a;background:#fff;color:#166534;font-size:14.5px;font-weight:700;border-radius:11px;cursor:pointer;min-height:46px}
+  .copy:active{background:#f0fdf4}
+  footer{color:#9ca3af;font-size:11px;text-align:center;margin-top:18px;line-height:1.8}
+  @media (min-width:560px){
+    body{padding:22px 18px 60px}
+    h1{font-size:24px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>泉州环评审批工作台</h1>
+    <div class="sub">建设项目环评类别 · 审批层级 · 受理窗口判别</div>
+  </header>
+
+  <div class="warn">判定结果仅供参考，最终以生态环境部门答复为准。依据：《分类管理名录（2021年版）》部令16号、《部审批目录（2019年本）》公告2019年第8号、《闽环发〔2025〕5号》、《泉环保评〔2023〕18号》（含附件1/2）。</div>
+
+  <div class="card">
+    <div class="sec"><span class="n">1</span>项目基本信息</div>
+    <div class="lbl">建设地点<span class="req">*</span></div>
+    <select id="fLoc">
+      <option value="">请选择所在区县</option>
+      <option value="鲤城区">鲤城区</option>
+      <option value="丰泽区">丰泽区</option>
+      <option value="洛江区">洛江区</option>
+      <option value="泉港区">泉港区</option>
+      <option value="晋江市">晋江市</option>
+      <option value="石狮市">石狮市</option>
+      <option value="南安市">南安市</option>
+      <option value="惠安县">惠安县</option>
+      <option value="安溪县">安溪县</option>
+      <option value="永春县">永春县</option>
+      <option value="德化县">德化县</option>
+      <option value="台商投资区">台商投资区</option>
+      <option value="泉州开发区">泉州开发区</option>
+    </select>
+    <div class="lbl">项目性质<span class="req">*</span></div>
+    <div class="radios" id="fNat">
+      <label class="radio"><input type="radio" name="nat" value="新建">新建</label>
+      <label class="radio"><input type="radio" name="nat" value="改扩建">改扩建</label>
+      <label class="radio"><input type="radio" name="nat" value="技术改造">技术改造</label>
+    </div>
+    <div class="lbl">备案/审批机关层级<span class="req">*</span></div>
+    <select id="fLev">
+      <option value="">请选择</option>
+      <option value="国务院">国务院及其部门</option>
+      <option value="省">省政府及其投资主管部门</option>
+      <option value="市">泉州市政府及其投资主管部门</option>
+      <option value="县">县（市、区）政府及其投资主管部门</option>
+      <option value="台商区">泉州台商投资区管委会</option>
+      <option value="开发区">泉州开发区管委会</option>
+    </select>
+    <div class="lbl">是否跨行政区域</div>
+    <div class="radios" id="fCross">
+      <label class="radio"><input type="radio" name="cross" value="不跨" checked="">不跨</label>
+      <label class="radio"><input type="radio" name="cross" value="跨县">跨县</label>
+      <label class="radio"><input type="radio" name="cross" value="跨设区市">跨设区市</label>
+      <label class="radio"><input type="radio" name="cross" value="跨省">跨省</label>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="sec"><span class="n">2</span>行业与工艺</div>
+    <div class="lbl">行业类别（可添加多个）<span class="req">*</span></div>
+    <div class="searchbox">
+      <input class="input" id="fInd" placeholder="输入关键词搜索，如：电镀、印染、水泥..." autocomplete="off">
+      <div class="sug" id="sugBox"></div>
+    </div>
+    <div id="industryList" style="margin-top:11px"></div>
+    <div class="pick" id="pickBox">
+      <div class="pname" id="pickName"></div>
+      <div class="pcond" id="pickCond"></div>
+      <div class="catbtns" id="catBtns">
+        <div class="catbtn" data-v="报告书">报告书</div>
+        <div class="catbtn" data-v="报告表">报告表</div>
+        <div class="catbtn" data-v="登记表">登记表</div>
+      </div>
+      <div class="specrow" id="specRow">
+        <div class="lbl">该报告表是否需开展专项评价</div>
+        <div class="radios" id="fSpec">
+          <label class="radio"><input type="radio" name="spec" value="否" checked="">不需专项</label>
+          <label class="radio"><input type="radio" name="spec" value="是">需专项</label>
+        </div>
+        <div class="hint">涉及环境敏感区、跨水体排放或行业导则要求时一般需专项评价，请按技术导则判断。</div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button class="addind" id="btnAddInd" style="flex:1;padding:10px;border:none;border-radius:10px;background:#16a34a;color:#fff;font-size:14px;font-weight:700;cursor:pointer">添加此行业</button>
+        <button class="cancelind" id="btnCancelInd" style="flex:1;padding:10px;border:1.5px solid #d1d5db;border-radius:10px;background:#fff;color:#6b7280;font-size:14px;cursor:pointer">取消</button>
+      </div>
+      <div class="hint">按上方名录条件，选择本项目实际适用的环评类别；多行业项目请逐个添加，系统将自动取最高等级（名录第四条）。</div>
+    </div>
+    <div class="lbl">是否位于环境敏感区</div>
+    <div class="radios" id="fSens">
+      <label class="radio"><input type="radio" name="sens" value="否" checked="">否</label>
+      <label class="radio"><input type="radio" name="sens" value="是">是</label>
+    </div>
+    <div class="hint">自然保护区、饮用水水源保护区、生态保护红线、永久基本农田、重要湿地、居住/医疗卫生/文化教育/科研/行政办公区、文物保护单位等。涉及敏感区时名录条款通常升级类别，请核对。</div>
+  </div>
+
+  <button class="go" id="btnGo">开 始 判 定</button>
+
+  <div class="res" id="resBox">
+    <h3>判定结果</h3>
+    <div class="rr"><span class="lab">环评类别</span><b id="rType"></b></div>
+    <div class="rr"><span class="lab">审批层级</span><span id="rAgency"></span></div>
+    <div class="rr"><span class="lab">受理窗口</span><span id="rWin"></span></div>
+    <div class="rr"><span class="lab">报批系统</span>全国建设项目环评统一申报和审批系统（网上）+ 窗口纸质/电子材料</div>
+    <div class="rr"><span class="lab">备注</span><span id="rNote"></span></div>
+    <div class="branch" id="rBranch"></div>
+    <div class="ref" id="rRef"></div>
+    <button class="copy" id="btnCopy">复制判定结果</button>
+  </div>
+
+  <footer>
+    《建设项目环境影响评价分类管理名录（2021年版）》部令16号<br>
+    《生态环境部审批目录（2019年本）》公告2019年第8号<br>
+    《福建省分级审批目录（2025年本）》闽环发〔2025〕5号<br>
+    《泉环保评〔2023〕18号》（含附件1/2）· 泉委发〔2014〕12号<br>
+    单文件离线可用 · 分支情形请对照原文复核
+  </footer>
+</div>
+<script>
+/* ============ 名录 2021 高频条目数据（依据部令16号原文提取） ============ */
+var CATALOG = [
+{id:1, n:'农产品基地（含药材基地）', bs:'', bt:'涉及环境敏感区的', dj:'其他'},
+{id:2, n:'经济林基地', bs:'', bt:'原料林基地', dj:'其他'},
+{id:3, n:'牲畜饲养031 / 家禽饲养032 / 其他畜牧业039', bs:'年出栏生猪5000头及以上（其他畜禽折猪）；存栏生猪2500头及以上无出栏量；涉及环境敏感区的规模化养殖', bt:'', dj:'其他（规模化以下除外）'},
+{id:4, n:'海水养殖0411', bs:'用海面积1000亩及以上（不含底播、藻类）；围海养殖', bt:'300~1000亩网箱/海洋牧场/苔茷养殖；100~1000亩水产养殖基地/工厂化/高位池；1500亩及以上底播藻类；涉及环境敏感区', dj:'其他'},
+{id:5, n:'内陆养殖0412', bs:'', bt:'网箱、围网投饵养殖；涉及环境敏感区', dj:'其他'},
+{id:6, n:'煤炭开采和洗选业06（烟煤/褐煤/其他煤炭采选）', bs:'煤炭开采', bt:'煤炭洗选、配煤；储存、集运；风井场地、瓦斯抽放站；矿区修复治理', dj:''},
+{id:7, n:'陆地石油开采0711', bs:'新区块开发；页岩油开采；涉及环境敏感区（含内部集输管线）', bt:'', dj:'其他'},
+{id:8, n:'陆地天然气开采0721', bs:'新区块开发；年产1亿m³及以上煤层气；涉及环境敏感区（含内部集输管线）', bt:'', dj:'其他'},
+{id:9, n:'铁矿081 / 锰铬矿082 / 其他黑色金属矿采选089', bs:'全部（含独立尾矿库；不含破碎集运、矿区修复）', bt:'单独的矿石破碎、集运；矿区修复治理工程', dj:''},
+{id:10, n:'有色金属矿采选091/092/093', bs:'全部（含独立尾矿库；不含破碎集运、矿区修复）', bt:'单独的矿石破碎、集运；矿区修复治理工程', dj:''},
+{id:11, n:'土砂石开采101（不含河道采砂）', bs:'涉及环境敏感区的', bt:'', dj:'其他（不含单独破碎集运、矿区修复）'},
+{id:12, n:'化学矿开采102 / 石棉及其他非金属矿采选109', bs:'全部（不含破碎集运、矿区修复）', bt:'单独的矿石破碎、集运；矿区修复治理工程', dj:''},
+{id:13, n:'采盐103', bs:'井盐', bt:'湖盐、海盐', dj:''},
+{id:14, n:'其他采矿业120', bs:'', bt:'涉及环境敏感区的', dj:'其他'},
+{id:15, n:'谷物磨制131* / 饲料加工132*', bs:'', bt:'含发酵工艺的；年加工1万吨及以上的', dj:''},
+{id:16, n:'植物油加工133*', bs:'', bt:'除单纯分装、调和外的', dj:''},
+{id:17, n:'制糖业134*', bs:'日加工糖料1000吨及以上的原糖生产', bt:'其他（单纯分装的除外）', dj:''},
+{id:18, n:'屠宰及肉类加工135*', bs:'屠宰生猪10万头/肉牛1万头/肉羊15万只/禽类1000万只及以上', bt:'其他屠宰；年加工2万吨及以上的肉类加工', dj:'其他肉类加工'},
+{id:19, n:'水产品加工136', bs:'', bt:'鱼油提取及制品制造；年加工10万吨及以上；涉及环境敏感区', dj:''},
+{id:20, n:'其他农副食品加工139*', bs:'含发酵工艺的淀粉、淀粉糖制造', bt:'不含发酵工艺的淀粉、淀粉糖制造；淀粉制品；豆制品（均不含单纯分装）', dj:''},
+{id:21, n:'糖果巧克力蜜饯142* / 方便食品143* / 罐头食品145*', bs:'', bt:'除单纯分装外的', dj:''},
+{id:22, n:'乳制品制造144*', bs:'', bt:'除单纯混合、分装外的', dj:''},
+{id:23, n:'调味品、发酵制品制造146*', bs:'有发酵工艺的味精/柠檬酸/赖氨酸/酵母制造；年产2万吨以上且有发酵工艺的酱油、食醋', bt:'其他（单纯混合、分装的除外）', dj:''},
+{id:24, n:'其他食品制造149*', bs:'有发酵工艺的食品添加剂/饲料添加剂制造', bt:'盐加工；营养/保健食品；冷冻饮品；无发酵工艺的食品及饲料添加剂；其他未列明食品（均不含单纯混合分装）', dj:''},
+{id:25, n:'酒的制造151*', bs:'有发酵工艺的（年产能1000千升以下的除外）', bt:'其他（单纯勾兑的除外）', dj:''},
+{id:26, n:'饮料制造152*', bs:'', bt:'有发酵工艺、原汁生产的', dj:''},
+{id:27, n:'卷烟制造162', bs:'', bt:'全部', dj:''},
+{id:28, n:'棉/毛/麻/丝绢/化纤织造及印染171~178*', bs:'有洗毛、脱胶、缫丝工艺的；染整工艺有前处理、染色、印花（喷墨/数码印花除外）工序的；使用有机溶剂涂层工艺的', bt:'有喷墨/数码印花工艺的；后整理工序涉及有机溶剂的；有喷水织造工艺的；水刺无纺布织造工艺的', dj:''},
+{id:29, n:'机织/针织服装、服饰制造181~183*', bs:'有染色、印花（喷墨/数码印花除外）工序的', bt:'有喷墨/数码印花工艺的；有洗水、砂洗工艺的', dj:''},
+{id:30, n:'皮革鞣制191 / 皮革制品192 / 毛皮鞣制193', bs:'有鞣制、染色工艺的', bt:'其他（无鞣制染色工艺的毛皮加工除外；无鞣制染色工艺的皮革制品制造除外）', dj:''},
+{id:31, n:'羽毛（绒）加工及制品制造194*', bs:'', bt:'全部（无水洗工艺的羽毛绒加工除外；羽毛绒制品制造除外）', dj:''},
+{id:32, n:'制鞋业195*', bs:'', bt:'有橡胶硫化/塑料注塑工艺的；年用溶剂型胶粘剂10吨及以上，或年用溶剂型处理剂3吨及以上', dj:''},
+{id:33, n:'木材加工201 / 木质制品制造203', bs:'有电镀工艺的；年用溶剂型涂料（含稀释剂）10吨及以上', bt:'年用溶剂型涂料10吨以下，或年用非溶剂型低VOCs含量涂料10吨及以上的；含木片烘干、水煮、染色等工艺的', dj:''},
+{id:34, n:'人造板制造202', bs:'年产20万m³及以上', bt:'其他', dj:''},
+{id:35, n:'竹藤棕草制品制造204*', bs:'有电镀工艺的；年用溶剂型涂料（含稀释剂）10吨及以上', bt:'采用胶合工艺的；年用溶剂型涂料10吨以下，或年用非溶剂型低VOCs涂料10吨及以上', dj:''},
+{id:36, n:'家具制造211~219*', bs:'有电镀工艺的；年用溶剂型涂料（含稀释剂）10吨及以上', bt:'其他（仅分割、组装的除外；年用非溶剂型低VOCs涂料10吨以下的除外）', dj:''},
+{id:37, n:'纸浆制造221* / 造纸222*（含废纸造纸）', bs:'全部（手工纸、加工纸制造除外）', bt:'手工纸制造；有涂布、浸渍、印刷、粘胶工艺的加工纸制造', dj:''},
+{id:38, n:'纸制品制造223*', bs:'', bt:'有涂布、浸渍、印刷、粘胶工艺的', dj:''},
+{id:39, n:'印刷231*', bs:'年用溶剂油墨10吨及以上', bt:'其他（激光印刷除外；年用低VOCs含量油墨10吨以下的印刷除外）', dj:''},
+{id:40, n:'文教办公用品241* / 乐器242* / 体育用品244* / 玩具245* / 游艺器材246*', bs:'有电镀工艺的；年用溶剂型涂料（含稀释剂）10吨及以上', bt:'有橡胶硫化/塑料注塑工艺的；年用溶剂型涂料10吨以下，或非溶剂型低VOCs涂料10吨及以上；年用溶剂型胶粘剂10吨及以上，或溶剂型处理剂3吨及以上', dj:''},
+{id:41, n:'工艺美术及礼仪用品制造243*', bs:'有电镀工艺的；年用溶剂型涂料（含稀释剂）10吨及以上', bt:'年用溶剂型涂料10吨以下，或年用非溶剂型低VOCs涂料10吨及以上', dj:''},
+{id:42, n:'精炼石油产品制造251 / 煤炭加工252', bs:'全部（单纯物理分离、提纯、混合、分装且不产生废水或VOCs的除外；煤制品制造除外；其他煤炭加工除外）', bt:'单纯物理分离、物理提纯、混合、分装的（不产生废水或VOCs的除外）；煤制品制造；其他煤炭加工', dj:''},
+{id:43, n:'生物质燃料加工254', bs:'生物质液体燃料生产', bt:'生物质致密成型燃料加工', dj:''},
+{id:44, n:'基础化学原料261 / 农药263 / 涂料油墨颜料264 / 合成材料265 / 专用化学品266 / 炸药火工267', bs:'全部（含研发中试；不含单纯物理分离、提纯、混合、分装且不产生废水或VOCs的）', bt:'单纯物理分离、物理提纯、混合、分装的（不产生废水或VOCs的除外）', dj:''},
+{id:45, n:'肥料制造262', bs:'化学方法生产氮肥、磷肥、复混肥的', bt:'其他', dj:''},
+{id:46, n:'日用化学产品制造268', bs:'以油脂为原料的肥皂/皂粒制造（连续皂化、油脂水解工艺除外）；香料制造（均不含单纯混合或分装）', bt:'连续皂化/油脂水解工艺的肥皂皂粒；高塔喷粉工艺的合成洗衣粉；热反应工艺的香精；烫发剂、染发剂制造', dj:''},
+{id:47, n:'化学药品原料药271 / 制剂272 / 兽用药品275 / 生物药品276', bs:'全部（含研发中试；不含单纯药品复配、分装；不含化学药品制剂制造）', bt:'单纯药品复配且产生废水或VOCs的；仅化学药品制剂制造', dj:''},
+{id:48, n:'中药饮片273* / 中成药274*', bs:'有提炼工艺的（仅醇提、水提的除外）', bt:'其他（单纯切片、制干、打包的除外）', dj:''},
+{id:49, n:'卫生材料及医药用品277 / 药用辅料及包装材料278', bs:'', bt:'卫生材料及医药用品制造（仅组装、分装的除外）；含有机合成反应的药用辅料/包装材料制造', dj:''},
+{id:50, n:'纤维素纤维原料及纤维281 / 合成纤维282', bs:'全部（单纯纺丝、单纯丙纶纤维制造除外）', bt:'单纯纺丝制造；单纯丙纶纤维制造', dj:''},
+{id:51, n:'生物基材料制造283', bs:'生物基化学纤维制造（单纯纺丝的除外）', bt:'单纯纺丝制造', dj:''},
+{id:52, n:'橡胶制品业291', bs:'轮胎制造；再生橡胶制造（常压连续脱硫工艺除外）', bt:'其他', dj:''},
+{id:53, n:'塑料制品业292', bs:'以再生塑料为原料生产的；有电镀工艺的；年用溶剂型胶粘剂10吨及以上；年用溶剂型涂料（含稀释剂）10吨及以上', bt:'其他（年用非溶剂型低VOCs含量涂料10吨以下的除外）', dj:''},
+{id:54, n:'水泥、石灰和石膏制造301', bs:'水泥制造（水泥粉磨站除外）', bt:'水泥粉磨站；石灰和石膏制造', dj:''},
+{id:55, n:'石膏水泥制品及类似制品302', bs:'', bt:'商品混凝土；砼结构构件制造；水泥制品制造', dj:''},
+{id:56, n:'砖瓦、石材等建筑材料制造303', bs:'', bt:'粘土砖瓦及建筑砌块；建筑用石加工；防水建筑材料；隔热隔音材料；其他建筑材料制造（含干粉砂浆搅拌站）（均不含利用石材板材切割、打磨、成型的）', dj:''},
+{id:57, n:'玻璃制造304 / 玻璃制品305', bs:'平板玻璃制造', bt:'特种玻璃制造；其他玻璃制造；玻璃制品制造（电加热的除外；仅切割、打磨、成型的除外）', dj:''},
+{id:58, n:'玻璃纤维和玻璃纤维增强塑料制品306', bs:'', bt:'全部', dj:''},
+{id:59, n:'陶瓷制品制造307*', bs:'使用高污染燃料的（按《高污染燃料目录》国环规大气〔2017〕2号）', bt:'不使用高污染燃料的建筑陶瓷；年产150万件及以上卫生陶瓷；年产250万件及以上日用陶瓷', dj:''},
+{id:60, n:'耐火材料308 / 石墨及其他非金属矿物制品309', bs:'石棉制品；含焙烧的石墨、碳素制品', bt:'其他', dj:''},
+{id:61, n:'炼铁311', bs:'全部', bt:'', dj:''},
+{id:62, n:'炼钢312 / 铁合金冶炼314', bs:'全部', bt:'', dj:''},
+{id:63, n:'钢压延加工313', bs:'年产50万吨及以上的冷轧', bt:'其他', dj:''},
+{id:64, n:'有色冶炼321/322/323/有色合金324', bs:'全部（利用单质金属混配重熔生产合金的除外）', bt:'其他', dj:''},
+{id:65, n:'有色金属压延加工325', bs:'', bt:'全部', dj:''},
+{id:66, n:'结构性金属制品331 / 金属工具332 / 集装箱金属包装容器333 / 金属丝绳334 / 建筑安全金属制品335 / 搪瓷337 / 金属制日用品338', bs:'有电镀工艺的；年用溶剂型涂料（含稀释剂）10吨及以上', bt:'其他（仅分割、焊接、组装的除外；年用非溶剂型低VOCs涂料10吨以下的除外）', dj:''},
+{id:67, n:'金属表面处理及热处理加工', bs:'有电镀工艺的；有钝化工艺的热镀锌；使用有机涂层的（喷粉、喷塑、浸塑和电泳除外；年用溶剂型涂料10吨以下和非溶剂型低VOCs涂料的除外）', bt:'其他（年用非溶剂型低VOCs涂料10吨以下的除外）', dj:''},
+{id:68, n:'铸造及其他金属制品制造339', bs:'黑色金属铸造年产10万吨及以上；有色金属铸造年产10万吨及以上', bt:'其他（仅分割、焊接、组装的除外）', dj:''},
+{id:69, n:'通用设备制造341~349', bs:'有电镀工艺的；年用溶剂型涂料（含稀释剂）10吨及以上', bt:'其他（仅分割、焊接、组装的除外；年用非溶剂型低VOCs涂料10吨以下的除外）', dj:''},
+{id:70, n:'专用设备制造351~359', bs:'有电镀工艺的；年用溶剂型涂料（含稀释剂）10吨及以上', bt:'其他（仅分割、焊接、组装的除外；年用非溶剂型低VOCs涂料10吨以下的除外）', dj:''},
+{id:71, n:'汽车整车361 / 发动机362 / 改装汽车363 / 低速汽车364 / 电车365 / 车身挂车366 / 零部件367', bs:'汽车整车制造（仅组装的除外）；发动机制造（仅组装的除外）；有电镀工艺的；年用溶剂型涂料（含稀释剂）10吨及以上', bt:'其他（年用非溶剂型低VOCs涂料10吨以下的除外）', dj:''},
+{id:72, n:'铁路运输设备371 / 城市轨道交通设备372', bs:'机车、车辆、高铁车组、城轨设备制造；发动机生产；有电镀工艺的；年用溶剂型涂料（含稀释剂）10吨及以上', bt:'其他（年用非溶剂型低VOCs涂料10吨以下的除外）', dj:''},
+{id:73, n:'船舶及相关装置制造373', bs:'造船、拆船、修船厂；有电镀工艺的；年用溶剂型涂料（含稀释剂）10吨及以上', bt:'其他（仅组装的除外；木船建造和维修除外；年用非溶剂型低VOCs涂料10吨以下的除外）', dj:''},
+{id:74, n:'航空、航天器及设备制造374', bs:'有电镀工艺的；年用溶剂型涂料（含稀释剂）10吨及以上', bt:'其他（年用非溶剂型低VOCs涂料10吨以下的除外）', dj:''},
+{id:75, n:'摩托车制造375', bs:'整车制造（仅组装的除外）；发动机制造（仅组装的除外）；有电镀工艺的；年用溶剂型涂料（含稀释剂）10吨及以上', bt:'其他（年用非溶剂型低VOCs涂料10吨以下的除外）', dj:''},
+{id:76, n:'自行车/助动车/非公路休闲车及零配件376~379', bs:'有电镀工艺的；年用溶剂型涂料（含稀释剂）10吨及以上', bt:'其他（仅分割、焊接、组装的除外；年用非溶剂型低VOCs涂料10吨以下的除外）', dj:''},
+{id:77, n:'电气机械和器材制造381~389', bs:'铅蓄电池制造；太阳能电池片生产；有电镀工艺的；年用溶剂型涂料（含稀释剂）10吨及以上', bt:'其他（仅分割、焊接、组装的除外；年用非溶剂型低VOCs涂料10吨以下的除外）', dj:''},
+{id:78, n:'计算机制造391', bs:'', bt:'显示器件制造；集成电路制造；使用有机溶剂的；有酸洗的（均不含仅分割、焊接、组装的）', dj:''},
+{id:79, n:'智能消费设备制造396', bs:'', bt:'全部（仅分割、焊接、组装的除外）', dj:''},
+{id:80, n:'电子器件制造397', bs:'', bt:'显示器件制造；集成电路制造；使用有机溶剂的；有酸洗的（均不含仅分割、焊接、组装的）', dj:''},
+{id:81, n:'电子元件及电子专用材料398', bs:'半导体材料制造；电子化工材料制造', bt:'印刷电路板制造；电子专用材料制造（电子化工材料制造除外）；使用有机溶剂的；有酸洗的（均不含仅分割、焊接、组装的）', dj:''},
+{id:82, n:'通信设备392 / 广播电视设备393 / 雷达394 / 非专业视听设备395 / 其他电子设备399', bs:'', bt:'全部（仅分割、焊接、组装的除外）', dj:''},
+{id:83, n:'仪器仪表制造401~409', bs:'有电镀工艺的；年用溶剂型涂料（含稀释剂）10吨及以上', bt:'其他（仅分割、焊接、组装的除外；年用非溶剂型低VOCs涂料10吨以下的除外）', dj:''},
+{id:84, n:'日用杂品制造411* / 其他未列明制造419*', bs:'有电镀工艺的；年用溶剂型涂料（含稀释剂）10吨及以上', bt:'年用溶剂型涂料10吨以下，或年用非溶剂型低VOCs涂料10吨及以上', dj:''},
+{id:85, n:'废弃资源综合利用421/422（不含原料为危废；不含仅分拣破碎）', bs:'废电池、废油加工处理', bt:'废弃电器电子产品、废机动车、废电机、废电线电缆、废钢废铁、金属矿灰残渣、有色废料与碎屑、废塑料、废轮胎、废船、含水洗工艺的其他废料加工处理', dj:''},
+{id:86, n:'金属制品/机械和设备修理431~439', bs:'有电镀工艺的；年用溶剂型涂料（含稀释剂）10吨及以上', bt:'年用溶剂型涂料10吨以下，或年用非溶剂型低VOCs涂料10吨及以上', dj:''},
+{id:87, n:'火力发电4411 / 热电联产4412（均含掺烧垃圾、污泥发电）', bs:'火力发电和热电联产（发电机组节能改造除外；燃气发电除外；单纯利用余热、余压、余气（含煤矿瓦斯）发电除外）', bt:'燃气发电；单纯利用余气（含煤矿瓦斯）发电', dj:''},
+{id:88, n:'水力发电4413', bs:'总装机1000千瓦及以上常规水电（仅更换发电设备的增效扩容除外）；抽水蓄能电站；涉及环境敏感区', bt:'其他', dj:''},
+{id:89, n:'生物质能发电4417', bs:'生活垃圾发电（掺烧生活垃圾发电除外）；污泥发电（掺烧污泥发电除外）', bt:'利用农林生物质、沼气、垃圾填埋气发电', dj:''},
+{id:90, n:'陆上风电4415 / 太阳能发电4416（不含居民家用光伏） / 其他电力生产4419', bs:'涉及环境敏感区的总装机容量5万千瓦及以上的陆上风力发电', bt:'陆地利用地热、太阳能热等发电；地面集中光伏电站（总容量>6000千瓦且接入电压≥10千伏）；其他风力发电', dj:'其他光伏发电'},
+];
+
+/* 名录 91~173 + 审批目录 + 附件清单 */
+var CATALOG2 = [
+{id:91, n:'热力生产和供应工程（含建设单位自建自用供热工程）', bs:'燃煤、燃油锅炉总容量65吨/小时（45.5兆瓦）以上', bt:'燃煤、燃油锅炉总容量65吨/小时及以下；天然气锅炉总容量1吨/小时（0.7兆瓦）以上；使用其他高污染燃料的', dj:''},
+{id:92, n:'燃气生产和供应业451（不含供应工程）', bs:'煤气生产', bt:'', dj:''},
+{id:93, n:'生物质燃气生产和供应452（不含供应工程）', bs:'', bt:'全部', dj:''},
+{id:94, n:'自来水生产和供应461（不含供应/村庄供应工程）', bs:'', bt:'全部', dj:''},
+{id:95, n:'污水处理及其再生利用', bs:'新建、扩建日处理10万吨及以上城乡污水处理；新建、扩建工业废水集中处理', bt:'新建、扩建日处理10万吨以下500吨及以上城乡污水处理；新建、扩建其他工业废水处理（不含自建自用仅处理生活污水的；不含出水直接排入地表水体且不排放重金属的）', dj:'其他（不含提标改造项目；不含化粪池及化粪池处理后中水回用；不含仅建设沉淀池处理的）'},
+{id:96, n:'海水淡化463 / 其他水的处理利用与分配469', bs:'', bt:'全部', dj:''},
+{id:97, n:'房地产开发、商业综合体、宾馆酒店、办公用房、标准厂房等', bs:'', bt:'涉及环境敏感区的', dj:'其他'},
+{id:98, n:'专业实验室、研发（试验）基地', bs:'P3、P4生物安全实验室；转基因实验室', bt:'其他（不产生实验废气、废水、危险废物的除外）', dj:''},
+{id:99, n:'陆地矿产资源地质勘查（含油气资源勘探）/ 二氧化碳地质封存', bs:'', bt:'全部', dj:''},
+{id:100, n:'脱硫、脱硝、除尘、VOCs治理等大气污染治理工程', bs:'', bt:'', dj:'全部'},
+{id:101, n:'危险废物（不含医疗废物）利用及处置', bs:'利用及处置（产生单位内部回收再利用的除外；单纯收集、贮存的除外）', bt:'其他', dj:''},
+{id:102, n:'医疗废物处置 / 病死及病害动物无害化处理', bs:'医疗废物集中处置（单纯收集、贮存的除外）', bt:'其他', dj:''},
+{id:103, n:'一般工业固废（含污水污泥）/ 建筑施工废弃物处置及综合利用', bs:'采取填埋、焚烧方式的（水泥窑协同处置的改造项目除外）', bt:'其他', dj:''},
+{id:104, n:'泥石流等地质灾害治理（应急治理/排危除险除外）', bs:'', bt:'涉及环境敏感区的特大型泥石流治理工程', dj:'其他（不涉及环境敏感区的小型地质灾害治理工程除外）'},
+{id:105, n:'生活垃圾（含餐厨废弃物）转运站', bs:'', bt:'日转运能力150吨及以上', dj:''},
+{id:106, n:'生活垃圾（含餐厨废弃物）集中处置（生活垃圾发电除外）', bs:'采取填埋方式的；其他处置方式日处置能力50吨及以上', bt:'其他处置方式日处置能力10吨及以上50吨以下', dj:'其他处置方式日处置能力1吨及以上10吨以下'},
+{id:107, n:'粪便处置工程', bs:'', bt:'日处理50吨及以上', dj:''},
+{id:108, n:'医院841 / 专科疾病防治院8432 / 妇幼保健院8433 / 急救中心8434 / 采供血机构8435 / 基层医疗卫生842', bs:'新建、扩建住院床位500张及以上', bt:'其他（住院床位20张以下的除外）', dj:'住院床位20张以下（不含20张）'},
+{id:109, n:'疾病预防控制中心8431', bs:'新建', bt:'其他', dj:''},
+{id:110, n:'学校、福利院、养老院（建筑面积5000㎡及以上）', bs:'', bt:'新建涉及环境敏感区的；有化学、生物实验室的学校', dj:''},
+{id:111, n:'批发、零售市场（建筑面积5000㎡及以上）', bs:'', bt:'涉及环境敏感区的', dj:''},
+{id:112, n:'高尔夫球场、滑雪场、狩猎场、赛车场、跑马场、射击场、水上运动中心等', bs:'高尔夫球场', bt:'涉及环境敏感区的', dj:'其他'},
+{id:113, n:'展览馆、博物馆、美术馆、影剧院、音乐厅、文化馆、图书馆、档案馆、纪念馆、体育场馆等', bs:'', bt:'涉及环境敏感区的', dj:''},
+{id:114, n:'公园（含动物园、主题公园；不含城市公园、植物园、村庄公园）/ 人工湖人工湿地', bs:'特大型、大型主题公园；容积500万m³及以上人工湖/人工湿地；涉及环境敏感区的容积5万~500万m³人工湖/湿地；年补水量占引水断面天然年径流量1/4及以上的人工湖/湿地', bt:'其他公园；不涉及环境敏感区的容积5万~500万m³人工湖/湿地；涉及环境敏感区的容积5万m³以下人工湖/湿地', dj:'不涉及环境敏感区的容积5万m³以下人工湖/人工湿地'},
+{id:115, n:'旅游开发', bs:'', bt:'缆车、索道建设', dj:'其他'},
+{id:116, n:'影视基地建设', bs:'涉及环境敏感区的', bt:'其他', dj:''},
+{id:117, n:'胶片洗印厂', bs:'', bt:'全部', dj:''},
+{id:118, n:'驾驶员训练基地、公交枢纽、长途客运站、大型停车场、机动车检测场', bs:'', bt:'涉及环境敏感区的', dj:''},
+{id:119, n:'加油、加气站', bs:'', bt:'城市建成区新建、扩建加油站；涉及环境敏感区的', dj:''},
+{id:120, n:'洗车场', bs:'', bt:'危险化学品运输车辆清洗场', dj:''},
+{id:121, n:'汽车、摩托车维修场所', bs:'', bt:'营业面积5000㎡及以上且使用溶剂型涂料的；营业面积5000㎡及以上且年用非溶剂型低VOCs涂料10吨及以上', dj:''},
+{id:122, n:'殡仪馆、陵园、公墓', bs:'', bt:'殡仪馆；涉及环境敏感区的', dj:''},
+{id:123, n:'动物医院', bs:'', bt:'设有动物颅腔、胸腔或腹腔手术设施的', dj:''},
+{id:124, n:'水库', bs:'库容1000万m³及以上；涉及环境敏感区的', bt:'其他', dj:''},
+{id:125, n:'灌区工程（不含水源工程的）', bs:'涉及环境敏感区的', bt:'其他（不含高标准农田、滴灌等节水改造工程）', dj:''},
+{id:126, n:'引水工程', bs:'跨流域调水；大中型河流引水；小型河流年总引水量占引水断面天然年径流量1/4及以上；涉及环境敏感区的（不含涉及饮用水水源保护区的水库配套引水工程）', bt:'其他', dj:''},
+{id:127, n:'防洪除涝工程', bs:'新建大中型', bt:'其他（小型沟渠的护坡除外）', dj:'城镇排涝河流水闸、排涝泵站'},
+{id:128, n:'河湖整治（不含农村塘堰、水渠）', bs:'涉及环境敏感区的', bt:'其他', dj:''},
+{id:129, n:'地下水开采（农村分散式家庭生活自用水井除外）', bs:'日取水量1万m³及以上；涉及环境敏感区的（不新增供水规模、不改变供水对象的改建工程除外）', bt:'其他', dj:''},
+{id:130, n:'等级公路（不含维护/应急保通/国防交通保障/扩建四级公路）', bs:'新建30公里（不含）以上二级及以上等级公路；新建涉及环境敏感区的二级及以上等级公路', bt:'其他（配套设施除外；不涉及环境敏感区的三级、四级公路除外）', dj:'配套设施；不涉及环境敏感区的三级、四级公路'},
+{id:131, n:'城市道路（不含维护/支路/人行天桥/人行地道）', bs:'', bt:'新建快速路、主干路；城市桥梁、隧道', dj:'其他'},
+{id:132, n:'新建、增建铁路', bs:'新建、增建（30公里及以下铁路联络线和专用线除外）；涉及环境敏感区的', bt:'30公里及以下铁路联络线和30公里及以下铁路专用线', dj:''},
+{id:133, n:'改建铁路', bs:'200公里及以上的电气化改造（线路和站场不发生调整的除外）', bt:'其他', dj:''},
+{id:134, n:'铁路枢纽', bs:'涉及环境敏感区的新建枢纽', bt:'其他（不新增占地的既有枢纽中部分线路改建除外）', dj:''},
+{id:135, n:'城市轨道交通（不新增占地的停车场改建除外）', bs:'全部', bt:'', dj:''},
+{id:136, n:'机场', bs:'新建；迁建；增加航空业务量的飞行区扩建', bt:'其他', dj:''},
+{id:137, n:'导航台站、供油工程、维修保障等配套工程', bs:'', bt:'供油工程；涉及环境敏感区的', dj:'其他'},
+{id:138, n:'油气、液体化工码头', bs:'新建；岸线、水工构筑物、吞吐量、储运量增加的扩建；装卸货种变化的扩建', bt:'其他', dj:''},
+{id:139, n:'干散货（含煤炭、矿石）、件杂、多用途、通用码头', bs:'单个泊位1000吨级及以上内河港口；单个泊位1万吨级及以上沿海港口；涉及环境敏感区的', bt:'其他', dj:''},
+{id:140, n:'集装箱专用码头', bs:'单个泊位3000吨级及以上内河港口；单个泊位3万吨级及以上沿海港口；涉及危险品、化学品的；涉及环境敏感区的', bt:'其他', dj:''},
+{id:141, n:'滚装、客运、工作船、游艇码头', bs:'涉及环境敏感区的', bt:'其他', dj:''},
+{id:142, n:'铁路轮渡码头', bs:'涉及环境敏感区的', bt:'其他', dj:''},
+{id:143, n:'航道工程、水运辅助工程', bs:'新建、扩建航道工程；涉及环境敏感区的防波堤、船闸、通航建筑物', bt:'其他', dj:''},
+{id:144, n:'航电枢纽工程', bs:'全部', bt:'', dj:''},
+{id:145, n:'中心渔港码头', bs:'涉及环境敏感区的', bt:'其他', dj:''},
+{id:146, n:'城市（镇）管网及管廊建设（不含给水/光纤/1.6兆帕以下天然气管道）', bs:'', bt:'新建涉及环境敏感区的', dj:'其他'},
+{id:147, n:'原油、成品油、天然气管线（不含城市/城镇燃气/企业厂区管道）', bs:'涉及环境敏感区的', bt:'其他', dj:''},
+{id:148, n:'危险化学品输送管线（不含企业厂区内管线）', bs:'涉及环境敏感区的', bt:'其他', dj:''},
+{id:149, n:'危险品仓储594（不含加油站油库/加气站气库）', bs:'总容量20万m³及以上油库（含油品码头后方配套油库）；地下油库；地下气库', bt:'其他（含有毒、有害、危险品的仓储；含液化天然气库）', dj:''},
+{id:150, n:'海洋矿产资源勘探开发及其附属工程', bs:'新区块油气开发及附属工程；污水日排放量1000m³及以上或年产油量20万吨及以上的海洋油气开发及附属工程；挖沟埋设单条管道长度20公里及以上或涉及环境敏感区的油气集输管道、电（光）缆工程；海洋（海底）矿产资源开发（含天然气水合物、海砂开采、矿盐卤水、海床底温泉、海底地下水等）', bt:'海洋油气勘探工程；不在环境敏感区内且排污量未超出原环评批复排放总量的海洋油气调整井工程；为油气开采配套的海底输水及输送无毒无害物质管道、电（光）缆原地弃置工程', dj:''},
+{id:151, n:'海洋能源开发利用类工程', bs:'装机容量20兆瓦及以上潮汐、波浪、温差、海洋生物质能等开发利用、输送设施及网络工程；总装机5万千瓦及以上海上风电工程及输送设施及网络工程；涉及环境敏感区的', bt:'其他潮汐、波浪、温差、海洋生物质能等开发利用、输送设施及网络工程；地热发电；太阳能发电；其他海上风电工程及其输送设施及网络工程', dj:''},
+{id:152, n:'海底隧道、管道、电（光）缆工程', bs:'海底隧道工程；挖沟埋设单条管道长度20公里及以上海上和海底电（光）缆、输水管道、天然气及无毒无害物质输送管道；长度1公里及以上海上和海底有毒有害及危险品物质输送管道；涉及环境敏感区的海底管道、电（光）缆工程', bt:'其他（海底输送无毒无害物质的管道及电（光）缆原地弃置工程除外）', dj:''},
+{id:153, n:'跨海桥梁工程', bs:'非单跨、长度0.1公里及以上的公铁桥梁工程；涉及环境敏感区的', bt:'其他', dj:''},
+{id:154, n:'围填海工程及海上堤坝工程', bs:'围填海工程；长度0.5公里及以上海上堤坝工程', bt:'其他', dj:''},
+{id:155, n:'海上娱乐及运动、海上景观开发', bs:'污水日排放量200m³及以上的', bt:'污水日排放量200m³以下的', dj:''},
+{id:156, n:'海洋人工鱼礁工程', bs:'固体物质（虚方）投放量5万m³及以上', bt:'投放量5000m³及以上5万m³以下的；涉及环境敏感区的', dj:'其他'},
+{id:157, n:'海上和海底物资储藏设施工程', bs:'物资储藏设施等工程及其废弃和拆除等；原油、成品油、天然气（含LNG、LPG）、化学品及其他危险品和其他物质的仓储、储运等工程及其废弃和拆除等；吞吐（储）50万吨（万m³）及以上粉煤灰和废弃物储藏工程、海洋空间资源利用等工程', bt:'其他', dj:''},
+{id:158, n:'海洋生态修复工程', bs:'工程量10万m³及以上清淤、滩涂垫高等工程；涉及环境敏感区的堤坝拆除、临时围堰等改变水动力的工程', bt:'工程量10万m³以下清淤、滩涂垫高等工程；涉及环境敏感区的其他海洋生态修复工程', dj:'不涉及环境敏感区的退围、退养、退堤还海等近岸构筑物拆除工程；种植红树林、海草床、碱蓬等植被；修复移植珊瑚礁、牡蛎礁等'},
+{id:159, n:'排海工程', bs:'低放射性废液排海；污水日排放量10万m³及以上城镇生活污水排污管道工程；日排放量0.5万m³及以上工业废水排放工程', bt:'其他', dj:''},
+{id:160, n:'其他海洋工程', bs:'工程量10万m³及以上疏浚（不含航道工程）、取土（沙）等水下开挖工程；爆破挤淤、炸礁（岩）量0.2万m³及以上水下炸礁（岩）及爆破工程', bt:'其他', dj:''},
+{id:161, n:'输变电工程', bs:'500千伏及以上；涉及环境敏感区的330千伏及以上', bt:'其他（100千伏以下除外）', dj:''},
+{id:162, n:'广播电台、差转台', bs:'中波50千瓦及以上；短波100千瓦及以上；涉及环境敏感区的', bt:'其他', dj:''},
+{id:163, n:'电视塔台', bs:'涉及环境敏感区的100千瓦及以上', bt:'其他', dj:''},
+{id:164, n:'卫星地球上行站', bs:'涉及环境敏感区的', bt:'其他', dj:''},
+{id:165, n:'雷达', bs:'涉及环境敏感区的', bt:'其他', dj:''},
+{id:166, n:'无线通讯', bs:'', bt:'', dj:'全部'},
+{id:167, n:'核动力厂/反应堆/核燃料生产加工贮存后处理设施/放射性污染治理项目', bs:'新建、扩建、退役', bt:'主生产工艺或安全重要构筑物的重大变更，但源项不显著增加；次临界装置的新建、扩建、退役', dj:'核设施控制区范围内新增的不带放射性的实验室、试验装置、维修车间、仓库、办公设施等'},
+{id:168, n:'放射性废物贮存、处理、处置设施', bs:'新建、扩建、退役；放射性废物处置设施的关闭', bt:'独立的放射性废物贮存设施', dj:''},
+{id:169, n:'铀矿开采、冶炼；其他方式提铀', bs:'新建、扩建、退役', bt:'其他（含工业试验）', dj:''},
+{id:170, n:'铀矿地质勘查、退役治理', bs:'', bt:'全部', dj:''},
+{id:171, n:'伴生放射性矿', bs:'采选、冶炼', bt:'其他（含放射性污染治理）', dj:''},
+{id:172, n:'核技术利用建设项目', bs:'生产放射性同位素的（制备PET用放射性药物除外）；使用Ⅰ类放射源（医疗使用除外）；销售（含建造）、使用Ⅰ类射线装置；甲级非密封放射性物质工作场所；以上项目的改、扩建（不含已许可场所增加不超许可范围核素/射线装置且新增规模不超原环评50%的）', bt:'制备PET用放射性药物；医疗机构使用Ⅰ类放射源；使用Ⅱ、Ⅲ类放射源；生产、使用Ⅱ类射线装置；乙、丙级非密封工作场所（医疗使用植入治疗用粒子源除外）；野外放射性同位素示踪试验；以上项目改、扩建（不含已许可场所内的）', dj:'销售非密封放射性物质；销售Ⅱ类射线装置；生产、销售、使用Ⅲ类射线装置'},
+{id:173, n:'核技术利用项目退役', bs:'生产放射性同位素的（制备PET用放射性药物除外）；甲级非密封放射性物质工作场所', bt:'乙级非密封工作场所使用Ⅰ、Ⅱ、Ⅲ类源存在污染的；使用Ⅰ、Ⅱ类射线装置（X射线装置和能量不高于10兆电子伏电子加速器除外）存在污染的', dj:'丙级非密封工作场所；使用Ⅰ、Ⅱ、Ⅲ类源场所不存在污染的'},
+];
+
+/* ============ 部批目录（2019年本，公告2019年第8号） ============ */
+var MEE_DIRS = [
+{cat:'一、水利', items:['水库：在跨界河流、跨省（区、市）河流上建设的项目','其他水事工程：涉及跨界河流、跨省（区、市）水资源配置调整的项目']},
+{cat:'二、能源', items:['水电站：跨界河流、跨省河流上单站总装机容量50万千瓦及以上','核电厂：全部（含范围内配套设施；不含控制区内不带放射性的实验室、试验装置、维修车间、仓库、办公设施等）','电网工程：跨境、跨省（区、市）±500千伏及以上交直流输变电项目','煤矿：国务院有关部门核准的煤炭开发项目','输油管网（不含油田集输管网）：跨境、跨省干线管网','输气管网（不含油气田集输管网）：跨境、跨省干线管网']},
+{cat:'三、交通运输', items:['新建（含增建）铁路：跨省（区、市）项目','煤炭、矿石、油气专用泊位：沿海（含长江南京及以下）新建年吞吐能力1000万吨及以上','内河航运：跨省（区、市）高等级航道的千吨级及以上航电枢纽项目']},
+{cat:'四、原材料', items:['石化：新建炼油及扩建一次炼油项目（不包括列入国务院批准的国家能源发展规划、石化产业规划布局方案的扩建项目）','化工：年产>20亿m³煤制天然气；年产>100万吨煤制油；年产>100万吨煤制甲醇；年产>50万吨煤经甲醇制烯烃']},
+{cat:'五、核与辐射', items:['除核电厂外的核设施：全部（不含控制区内不带放射性的配套项目）','放射性：铀（钍）矿','电磁辐射设施：由国务院或国务院有关部门审批的电磁辐射设施及工程']},
+{cat:'六、海洋', items:['涉及国家海洋权益、国防安全等特殊性质的海洋工程：全部','海洋矿产资源勘探开发及其附属工程：全部（不含海砂开采）','围填海：50公顷以上填海工程，100公顷以上围海工程','海洋能源开发利用：潮汐电站、波浪电站、温差电站等（不含海上风电）']},
+{cat:'七、绝密工程', items:['全部项目']},
+{cat:'八、其他', items:['由国务院或国务院授权有关部门审批的应编制环境影响报告书的项目（不含不含水库的防洪治涝工程、不含水库的灌区工程、研究和试验发展项目、卫生项目）']},
+];
+
+/* ============ 省级审批目录（2025年本，闽环发〔2025〕5号） ============ */
+var FJ_DIRS = [
+{cat:'（前置）生态环境部负责审批', items:['核设施、绝密工程等特殊性质的建设项目','跨省、自治区、直辖市行政区域的建设项目','由国务院审批的或者由国务院授权有关部门审批的建设项目']},
+{cat:'一、水利（省厅）', items:['水库：新建库容1000万m³及以上','引调水工程：新建项目']},
+{cat:'二、能源和资源开发（省厅）', items:['燃煤电站（含热电）：新建、改建、扩建（含燃煤掺烧废弃物）全部','风电、光伏电站：装机50万千瓦及以上','水电站：装机5万千瓦以上常规水电站；5万千瓦以下新建常规水电站；装机30万千瓦以上或涉及环境敏感区的抽水蓄能电站','煤炭开采和洗选：新增规模90万吨/年及以上新建、扩建煤矿','黑色金属矿采选：新增规模30万吨/年及以上新建、扩建铁矿采选；单独尾矿库；含尾矿库的矿山采选','有色金属矿采选：稀土采选；铜、铅锌、镍钴、锡、锑、汞矿采选；单独尾矿库；含尾矿库的矿山采选','非金属矿采选：单独尾矿库；含尾矿库的矿山采选']},
+{cat:'三、交通运输（省厅）', items:['港口码头：新建煤炭、矿石、油气专用泊位；涉及危险品堆场的集装箱专用码头','机场：新建、迁建以及增加航空业务量的扩建运输机场；新建、迁建通用机场']},
+{cat:'四、制造业（省厅）', items:['石化：全部炼油；全部乙烯；新建对二甲苯、MDI；新建废轮胎生产再生油','化工：全部煤化工（含煤制氮肥、低阶煤分质利用）；全部农药及中间体；全部铬盐；全部氰化物生产','水泥熟料：全部（含水泥窑协同处置危险废物）','玻璃：全部涉及玻璃熔窑设备的（电熔窑除外）','钢铁：全部炼铁炼钢（含烧结、球团，短流程炼钢除外）；钢铁含锌尘泥等含锌二次资源生产（次）氧化锌','焦化：全部（含半焦；干熄焦、煤气净化等不涉及焦炉/炭化炉的改造除外）','有色金属冶炼：全部（含再生有色金属冶炼）','铸造：全部铸造用生铁；采用冲天炉为熔化设备的铸造','碳素制品：新建石油焦生产碳素制品','造纸：南平、三明辖区的新建、扩大制浆能力的扩建植物制浆','印染：南平、三明辖区的新建、扩大印染能力的扩建印染','合成革及人造革：南平、三明辖区的新建、扩大制革能力的扩建合成革及人造革项目（水性合成革除外）']},
+{cat:'五、海洋（省厅）', items:['围填海工程：全部项目（无论面积大小）']},
+{cat:'六、核与辐射（省厅）', items:['放射性同位素：全部（含报告表）','射线装置：全部（含报告表）','达到伴生放射性矿鉴定标准的16类矿产资源开发利用：稀土、锆及氧化锆、铌/钽、锡、铝、铅/锌、铜、铁、钒、钼、镍、锗、钛、金矿开采/选矿/冶炼；磷酸盐开采选矿及直接以磷酸盐为原料加工；煤开采选矿','广播电台、差转台、电视塔台、卫星地球上行站、雷达、输变电工程：全部（含报告表，220千伏及以下除外）','放射性污染治理项目（核技术利用、伴生放射性矿开发利用）','核设施内新建、改建、扩建不涉核的建设项目']},
+{cat:'七、环境治理业（省厅）', items:['新建危险废物集中处置（含焚烧、填埋）项目','产生危险废物的单位涉及新建（自建）单独危险废物焚烧或填埋处置项目']},
+{cat:'八、研究和试验发展（省厅）', items:['P3、P4生物安全实验室']},
+{cat:'（附加）省厅审批', items:['生态环境部委托省生态环境厅审批的建设项目','跨设区市行政区域的建设项目']},
+];
+
+/* ============ 18号文附件1：环境影响一般的报告书（市批→A类县窗口） ============ */
+var FJ1_ITEMS = {
+  title:'附件1：环境影响一般的报告书建设项目',
+  one_title:'一、泉州市政府及投资主管部门审批/核准/备案的以下报告书项目（命中→A类县窗口）',
+  one:['公路项目','码头，航道工程、水运辅助工程，航电枢纽工程','生活、工业污水集中处理设施','防洪治涝工程；河湖整治','医院、专科防治院（所、站）、社区医疗、卫生院（所、站）、血站、急救中心、妇幼保健院、疗养院等卫生机构','疾病预防控制中心','研发基地','海上娱乐及运动、海上景观开发','影视基地建设'],
+  two_title:'二、县（市、区）政府投资主管部门审批/核准/备案的报告书项目（不含附件2第三条所列项目 → A类县窗口）',
+  two:'县（市、区）备案报告书，未命中附件2第三条清单'
+};
+
+/* ============ 18号文附件2：环境影响较复杂的报告书（市批→B类市窗口） ============ */
+var FJ2_ITEMS = {
+  title:'附件2：环境影响较复杂的报告书建设项目',
+  one:'一、省政府及其投资主管部门审批/核准/备案的报告书项目（国家、省生态环境部门审批的除外）→ B类市窗口',
+  two:'二、泉州市政府及投资主管部门审批/核准/备案的报告书项目（不包含附件1第一条所列项目）→ B类市窗口',
+  three_title:'三、县（市、区）政府投资主管部门审批/核准/备案的报告书项目（命中以下清单→B类市窗口）：',
+  three:['供热改造等火力发电项目（燃气发电除外）；企业自备热电站（燃气除外）','利用矸石、油页岩、石油焦等综合利用发电','抽水蓄能水利发电项目','生物质能发电项目','煤炭开采','除国家、省审批以外的金属矿山开采；重有色金属矿选矿业（铜、铅锌、镍钴、锡、锑、汞选矿）','黑色金属年产50万吨及以上的冷轧','铁合金制造','除国家、省审批以外的金属冶炼','稀土深加工项目、冶炼分离项目','电镀','基本化学原料制造；农药制造；合成材料制造；专用化学品制造；炸药、火工及焰火产品制造（单纯混合或分装的除外）','生产过程中使用反应釜并有聚合（缩聚）生产反应的轻工纺织化纤、塑料制品项目','化学肥料（单纯混合和分装的除外）','半导体材料','除国家、省审批以外的所有石油加工、煤化工、炼焦业项目','新建通用机场、扩建民用机场项目、扩建军民合用机场项目','新建整车以外的其他汽车生产项目（新建整车由省厅审批）','造船项目；民用船舶中、低速柴油机生产项目','纸浆、溶解浆、纤维浆等制造；造纸（含废纸造纸）','印染','制革、毛皮鞣制，人造革','迁建、改扩建铅酸蓄电池制造（新建铅酸蓄电池由省厅审批）','变性燃料乙醇生产；玉米深加工；烟用二醋酸纤维素及丝束项目','规划环境影响评价已通过审查的城市轨道交通项目','水泥制造','危险废物（含医疗废物）利用及处置（单纯危险废物收集、贮存；产生单位内部回收再利用除外）','涉及三级、四级生物安全实验室的建设项目'],
+  four:'四、跨县（市、区）级行政区域的报告书项目 → B类市窗口'
+};
+
+/* ===== 工具 ===== */
+function $(id){ return document.getElementById(id); }
+function esc(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function radVal(name){ var el=document.querySelector('input[name="'+name+'"]:checked'); return el?el.value:''; }
+function firstNonEmpty(it){ return it.bs?'bs':(it.bt?'bt':(it.dj?'dj':'')); }
+
+var ALL = CATALOG.concat(CATALOG2);
+var PICK=null, CATV='', SPEC='否';
+var PICKS=[]; // 已添加的多个行业 [{it, catv, spec}]
+
+/* ===== 行业搜索 ===== */
+var sugBox=$('sugBox');
+$('fInd').addEventListener('input', function(){
+  var kw=this.value.trim();
+  PICK=null; CATV=''; SPEC='否';
+  $('pickBox').classList.remove('show'); $('specRow').classList.remove('show');
+  if(!kw){ sugBox.classList.remove('show'); return; }
+  var hN=[], hC=[];
+  ALL.forEach(function(it){
+    if(it.n.indexOf(kw)>=0) hN.push(it);
+    else if((it.bs+' '+it.bt+' '+it.dj).indexOf(kw)>=0) hC.push(it);
+  });
+  var hit=hN.concat(hC).slice(0,20);
+  if(!hit.length){ sugBox.innerHTML='<div class="empty">未找到匹配行业，换关键词试试（如：电镀、印染、水泥、医院、屠宰、码头）</div>'; sugBox.classList.add('show'); return; }
+  var h='';
+  hit.forEach(function(it){
+    var t=firstNonEmpty(it);
+    var tag=t==='bs'?'<span class="tag bs">报告书</span>':(t==='bt'?'<span class="tag bt">报告表</span>':'<span class="tag dj">登记表</span>');
+    h+='<div class="si" data-id="'+it.id+'"><span class="nm">第'+it.id+'条 '+esc(it.n)+'</span>'+tag+'</div>';
+  });
+  sugBox.innerHTML=h; sugBox.classList.add('show');
+  sugBox.querySelectorAll('.si').forEach(function(si){
+    si.addEventListener('mousedown', function(ev){ ev.preventDefault(); pickItem(parseInt(si.getAttribute('data-id'),10)); });
+  });
+});
+function pickItem(id){
+  var it=ALL.find(function(x){ return x.id===id; });
+  if(!it) return;
+  PICK=it; CATV=''; SPEC='否';
+  sugBox.classList.remove('show');
+  $('fInd').value=it.n;
+  $('pickName').textContent='第'+it.id+'条 '+it.n;
+  var c='';
+  if(it.bs) c+='<div class="row"><b class="bs">报告书：</b>'+esc(it.bs)+'</div>';
+  if(it.bt) c+='<div class="row"><b class="bt">报告表：</b>'+esc(it.bt)+'</div>';
+  if(it.dj) c+='<div class="row"><b class="dj">登记表：</b>'+esc(it.dj)+'</div>';
+  if(!it.bs&&!it.bt&&!it.dj) c='<div class="row">名录未设环评类别（无需环评或按登记表）</div>';
+  $('pickCond').innerHTML=c;
+  $('pickBox').classList.add('show');
+  $('catBtns').querySelectorAll('.catbtn').forEach(function(b){ b.classList.remove('on'); });
+  $('specRow').classList.remove('show');
+}
+$('catBtns').querySelectorAll('.catbtn').forEach(function(b){
+  b.addEventListener('click', function(){
+    CATV=b.getAttribute('data-v');
+    $('catBtns').querySelectorAll('.catbtn').forEach(function(x){ x.classList.remove('on'); });
+    b.classList.add('on');
+    $('specRow').classList.toggle('show', CATV==='报告表');
+  });
+});
+$('fSpec').querySelectorAll('input').forEach(function(r){
+  r.addEventListener('change', function(){ if(r.checked) SPEC=r.value; });
+});
+/* 添加行业到列表 */
+$('btnAddInd').addEventListener('click', function(){
+  if(!PICK){ alert('请先搜索并选择一个行业'); return; }
+  if(!CATV){ alert('请选择该行业的环评类别（报告书/报告表/登记表）'); return; }
+  PICKS.push({it:PICK, catv:CATV, spec:CATV==='报告表'?SPEC:'否'});
+  renderIndustryList();
+  // 重置
+  PICK=null; CATV=''; SPEC='否';
+  $('fInd').value='';
+  $('pickBox').classList.remove('show');
+  $('catBtns').querySelectorAll('.catbtn').forEach(function(b){ b.classList.remove('on'); });
+  $('fInd').focus();
+});
+$('btnCancelInd').addEventListener('click', function(){
+  PICK=null; CATV=''; SPEC='否';
+  $('fInd').value='';
+  $('pickBox').classList.remove('show');
+  $('catBtns').querySelectorAll('.catbtn').forEach(function(b){ b.classList.remove('on'); });
+});
+function renderIndustryList(){
+  var box=$('industryList');
+  if(!PICKS.length){ box.innerHTML='<div style="font-size:12.5px;color:#9ca3af;padding:8px 0">尚未添加行业，请在上方搜索并添加</div>'; return; }
+  var h='';
+  PICKS.forEach(function(p, idx){
+    var bcls=p.catv==='报告书'?'bs':(p.catv==='报告表'?'bt':'dj');
+    h+='<div class="indCard">'
+      +'<div class="info">'
+      +'<div class="nm">'+(idx+1)+'. 第'+p.it.id+'条 '+esc(p.it.n)+'</div>'
+      +'<div class="cond">'+(p.catv==='报告表'?(p.spec==='是'?'需专项评价':'不需专项'):'')+'</div>'
+      +'</div>'
+      +'<span class="badge '+bcls+'">'+p.catv+'</span>'
+      +'<button class="del" data-idx="'+idx+'">×</button>'
+      +'</div>';
+  });
+  box.innerHTML=h;
+  box.querySelectorAll('.del').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var i=parseInt(btn.getAttribute('data-idx'),10);
+      PICKS.splice(i,1);
+      renderIndustryList();
+    });
+  });
+}
+document.addEventListener('click', function(ev){
+  if(!sugBox.contains(ev.target)&&ev.target.id!=='fInd') sugBox.classList.remove('show');
+});
+
+/* ===== 附件1第一条（环境影响一般→A类） / 附件2第三条（环境影响较复杂→B类）===== */
+var R1=[
+  ['公路','公路项目'],
+  ['码头','码头、航道工程、水运辅助工程、航电枢纽工程'],['航道','码头、航道工程、水运辅助工程、航电枢纽工程'],['航电枢纽','码头、航道工程、水运辅助工程、航电枢纽工程'],
+  ['污水处理','生活、工业污水集中处理设施'],['污水集中','生活、工业污水集中处理设施'],['城乡污水处理','生活、工业污水集中处理设施'],
+  ['防洪','防洪治涝工程；河湖整治'],['河湖整治','防洪治涝工程；河湖整治'],
+  ['医院','医院、专科防治院、社区医疗、卫生院、血站、急救中心、妇幼保健院、疗养院等卫生机构'],['专科防治','医院、专科防治院、社区医疗、卫生院、血站、急救中心、妇幼保健院、疗养院等卫生机构'],['采供血','医院、专科防治院、社区医疗、卫生院、血站、急救中心、妇幼保健院、疗养院等卫生机构'],['急救中心','医院、专科防治院、社区医疗、卫生院、血站、急救中心、妇幼保健院、疗养院等卫生机构'],['妇幼保健','医院、专科防治院、社区医疗、卫生院、血站、急救中心、妇幼保健院、疗养院等卫生机构'],['卫生院','医院、专科防治院、社区医疗、卫生院、血站、急救中心、妇幼保健院、疗养院等卫生机构'],['疗养院','医院、专科防治院、社区医疗、卫生院、血站、急救中心、妇幼保健院、疗养院等卫生机构'],['基层医疗卫生','医院、专科防治院、社区医疗、卫生院、血站、急救中心、妇幼保健院、疗养院等卫生机构'],
+  ['疾病预防控制中心','疾病预防控制中心'],
+  ['研发基地','研发基地'],
+  ['海上娱乐','海上娱乐及运动、海上景观开发'],['海上景观','海上娱乐及运动、海上景观开发'],
+  ['影视基地','影视基地建设']
+];
+var R2=[
+  ['供热改造','供热改造等火力发电（燃气发电除外）'],['火力发电','供热改造等火力发电（燃气发电除外）'],['自备热电','企业自备热电站（燃气除外）'],
+  ['矸石','利用矸石、油页岩、石油焦综合利用发电'],['油页岩','利用矸石、油页岩、石油焦综合利用发电'],['石油焦','利用矸石、油页岩、石油焦综合利用发电'],
+  ['抽水蓄能','抽水蓄能水利发电项目'],['生物质能发电','生物质能发电项目'],
+  ['煤炭开采','煤炭开采'],
+  ['金属矿','金属矿山开采；重有色金属矿选矿业'],['选矿','金属矿山开采；重有色金属矿选矿业'],
+  ['冷轧','黑色金属年产50万吨及以上冷轧'],['铁合金','铁合金制造'],['金属冶炼','金属冶炼（除国家、省审批外）'],['稀土','稀土深加工、冶炼分离'],
+  ['电镀','电镀'],
+  ['基本化学原料','基本化学原料制造；农药制造；合成材料制造；专用化学品制造；炸药火工（单纯混合分装除外）'],['农药','基本化学原料制造；农药制造；合成材料制造；专用化学品制造；炸药火工（单纯混合分装除外）'],['合成材料','基本化学原料制造；农药制造；合成材料制造；专用化学品制造；炸药火工（单纯混合分装除外）'],['专用化学品','基本化学原料制造；农药制造；合成材料制造；专用化学品制造；炸药火工（单纯混合分装除外）'],['炸药','基本化学原料制造；农药制造；合成材料制造；专用化学品制造；炸药火工（单纯混合分装除外）'],['火工','基本化学原料制造；农药制造；合成材料制造；专用化学品制造；炸药火工（单纯混合分装除外）'],
+  ['反应釜','使用反应釜并有聚合（缩聚）反应的项目'],
+  ['化学肥料','化学肥料（单纯混合分装除外）'],['半导体','半导体材料'],
+  ['石油加工','石油加工、煤化工、炼焦业（除国家、省审批外）'],['煤化工','石油加工、煤化工、炼焦业（除国家、省审批外）'],['炼焦','石油加工、煤化工、炼焦业（除国家、省审批外）'],
+  ['通用机场','新建通用机场、扩建民用机场、扩建军民合用机场'],['民用机场','新建通用机场、扩建民用机场、扩建军民合用机场'],['军民合用','新建通用机场、扩建民用机场、扩建军民合用机场'],
+  ['整车','新建整车以外的其他汽车生产'],['汽车','新建整车以外的其他汽车生产'],
+  ['造船','造船项目；民用船舶中低速柴油机'],['柴油机','造船项目；民用船舶中低速柴油机'],
+  ['纸浆','纸浆、溶解浆、纤维浆制造；造纸（含废纸造纸）'],['造纸','纸浆、溶解浆、纤维浆制造；造纸（含废纸造纸）'],
+  ['印染','印染'],['制革','制革、毛皮鞣制、人造革'],['毛皮','制革、毛皮鞣制、人造革'],['人造革','制革、毛皮鞣制、人造革'],
+  ['铅酸蓄电池','铅酸蓄电池（迁建、改扩建）'],
+  ['变性燃料乙醇','变性燃料乙醇、玉米深加工、烟用二醋酸纤维素及丝束'],['玉米深加工','变性燃料乙醇、玉米深加工、烟用二醋酸纤维素及丝束'],['烟用二醋酸','变性燃料乙醇、玉米深加工、烟用二醋酸纤维素及丝束'],
+  ['城市轨道交通','城市轨道交通（规划环评已通过审查）'],
+  ['水泥制造','水泥制造'],['水泥窑','水泥制造'],
+  ['危险废物','危险废物（含医疗废物）利用及处置'],['医疗废物','危险废物（含医疗废物）利用及处置'],
+  ['生物安全实验室','涉及三、四级生物安全实验室']
+];
+function hitR(txt, rules){
+  var out=[];
+  rules.forEach(function(r){ if(txt.indexOf(r[0])>=0&&out.indexOf(r[1])<0) out.push(r[1]); });
+  return out;
+}
+
+/* ===== 部批目录（mee-catalog-2019）===== */
+function meeLines(it, catv){
+  var L=[], n=it.n, id=it.id;
+  if(id===167) L.push({c:'核动力厂/反应堆/核燃料生产加工贮存后处理设施', ag:'生态环境部', win:'按部规定渠道', note:'核设施全部（若仅为放射性污染治理项目则报省厅）'});
+  if(id===168) L.push({c:'放射性废物贮存、处理、处置设施', ag:'生态环境部', win:'按部规定渠道'});
+  if(id===169||id===170) L.push({c:'铀（钍）矿开采冶炼 / 铀矿勘查退役', ag:'生态环境部', win:'按部规定渠道'});
+  if(id===154&&catv==='报告书') L.push({c:'填海50公顷及以上 / 围海100公顷及以上', ag:'生态环境部', win:'按部规定渠道', note:'达到该规模报部；其余围填海一律报省厅'});
+  if(id===138&&catv==='报告书') L.push({c:'沿海新建年吞吐≥1000万吨的煤炭、矿石、油气专用泊位', ag:'生态环境部', win:'按部规定渠道', note:'未达1000万吨的新建专用泊位报省厅；其余扩建报市局'});
+  if(id===42&&catv==='报告书'){
+    L.push({c:'新建炼油或扩建一次炼油（未列入国家规划的扩建）', ag:'生态环境部', win:'按部规定渠道'});
+    L.push({c:'煤制天然气＞20亿m³ / 煤制油＞100万t / 煤制甲醇＞100万t / 煤经甲醇制烯烃＞50万t', ag:'生态环境部', win:'按部规定渠道'});
+  }
+  return L;
+}
+
+/* ===== 省批目录（fujian-catalog-2025，泉州适用部分）=====
+   conditional=true 表示需按规模/工艺进一步核实，不能直接定结论 */
+function fjLines(it, catv){
+  var L=[], n=it.n, id=it.id;
+  if(id===154&&catv==='报告书') L.push({c:'围填海工程', ag:'福建省生态环境厅', win:'按省厅规定渠道', note:'福建：全部围填海项目无论面积均报省厅；达部批规模（填海≥50公顷/围海≥100公顷）报部', conditional:false});
+  if(id===87&&catv==='报告书') L.push({c:'燃煤电站（含热电联产、掺烧废弃物）', ag:'福建省生态环境厅', win:'按省厅规定渠道', note:'名录报告书档＝火力发电和热电联产（燃气、余热余压余气除外）；燃气/余气报告表报市局', conditional:false});
+  if(id===88&&catv==='报告书') L.push({c:'水电站', ag:'可能省厅审批', win:'按省厅规定渠道', note:'【须核实】5万kW以上常规/5万kW以下新建/抽蓄30万kW及以上或涉敏感区→省厅；其余常规水电（增效扩容等）→市局', conditional:true});
+  if(id===90&&catv==='报告书') L.push({c:'陆上风电/光伏电站', ag:'可能省厅审批', win:'按省厅规定渠道', note:'【须核实】装机≥50万kW→省厅；<50万kW→市局', conditional:true});
+  if(id===124&&catv==='报告书') L.push({c:'新建水库', ag:'可能省厅审批', win:'按省厅规定渠道', note:'【须核实】库容≥1000万m³→省厅；<1000万m³→市局；跨界跨省河流→报部', conditional:true});
+  if(id===42&&catv==='报告书'){
+    L.push({c:'炼油（除部批情形外）', ag:'福建省生态环境厅', win:'按省厅规定渠道', note:'省目录：石化全部炼油；部批情形（新建炼油/大型煤化工）见上方部批项', conditional:false});
+    L.push({c:'煤化工（未达部批规模）', ag:'福建省生态环境厅', win:'按省厅规定渠道', note:'含煤制氮肥、低阶煤分质利用；达部批规模见上方部批项', conditional:false});
+  }
+  if(id===44&&catv==='报告书') L.push({c:'基础化学原料制造', ag:'可能省厅审批', win:'按省厅规定渠道', note:'【须核实】农药及中间体/铬盐/氰化物→省厅；其余基础化学原料/合成材料/专用化学品/涂料/炸药火工（名录报告书档）→市局，请按实际产品核对', conditional:true});
+  if(n.indexOf('水泥')>=0&&catv==='报告书') L.push({c:'水泥制造', ag:'可能省厅审批', win:'按省厅规定渠道', note:'【须核实】水泥熟料（含水泥窑协同处置危废）→省厅；水泥粉磨站（报告表）→市局', conditional:true});
+  if(n.indexOf('玻璃')>=0&&catv==='报告书') L.push({c:'玻璃制造', ag:'可能省厅审批', win:'按省厅规定渠道', note:'【须核实】涉及玻璃熔窑设备（电熔窑除外）→省厅；电熔窑→市局', conditional:true});
+  if((n.indexOf('炼铁')>=0||n.indexOf('炼钢')>=0||n.indexOf('钢铁')>=0)&&catv==='报告书') L.push({c:'炼铁、炼钢', ag:'可能省厅审批', win:'按省厅规定渠道', note:'【须核实】含烧结/球团（短流程炼钢除外）→省厅；短流程炼钢→市局', conditional:true});
+  if(n.indexOf('焦化')>=0&&catv==='报告书') L.push({c:'焦化（含半焦）', ag:'福建省生态环境厅', win:'按省厅规定渠道', note:'全部报省厅', conditional:false});
+  if(n.indexOf('有色金属冶炼')>=0&&catv==='报告书') L.push({c:'有色金属冶炼（含再生）', ag:'福建省生态环境厅', win:'按省厅规定渠道', note:'全部报省厅', conditional:false});
+  if(n.indexOf('铸造')>=0&&catv==='报告书') L.push({c:'铸造', ag:'可能省厅审批', win:'按省厅规定渠道', note:'【须核实】铸造用生铁/冲天炉熔化→省厅；其他铸造→市局', conditional:true});
+  if(n.indexOf('碳素')>=0&&catv==='报告书') L.push({c:'碳素制品', ag:'可能省厅审批', win:'按省厅规定渠道', note:'【须核实】石油焦生产碳素→省厅；其他碳素→市局', conditional:true});
+  if((n.indexOf('引调水')>=0||n.indexOf('引水工程')>=0)&&catv==='报告书') L.push({c:'引调水/引水工程（新建）', ag:'福建省生态环境厅', win:'按省厅规定渠道', note:'闽环发〔2025〕5号：新建引调水工程全部报省厅', conditional:false});
+  if(n.indexOf('尾矿库')>=0) L.push({c:'尾矿库', ag:'福建省生态环境厅', win:'按省厅规定渠道', note:'单独尾矿库/含尾矿库的矿山采选→省厅', conditional:false});
+  if(n.indexOf('煤炭开采')>=0&&catv==='报告书') L.push({c:'煤炭开采', ag:'可能省厅审批', win:'按省厅规定渠道', note:'【须核实】新增规模≥90万t/a新建扩建→省厅；<90万t/a→市局', conditional:true});
+  if(n.indexOf('金属矿')>=0&&catv==='报告书') L.push({c:'金属矿采选', ag:'可能省厅审批', win:'按省厅规定渠道', note:'【须核实】铁矿新增≥30万t/a；稀土/铜铅锌镍钴锡锑汞采选；单独或含尾矿库→省厅；未达门槛→市局', conditional:true});
+  if(n.indexOf('机场')>=0&&catv==='报告书') L.push({c:'机场工程', ag:'可能省厅审批', win:'按省厅规定渠道', note:'【须核实】新建/迁建及增加业务量的扩建运输机场、新建/迁建通用机场→省厅；其他→市局', conditional:true});
+  if(id===140&&catv==='报告书') L.push({c:'集装箱专用码头', ag:'可能省厅审批', win:'按省厅规定渠道', note:'【须核实】涉及危险品堆场→省厅；未涉危险品堆场→市局', conditional:true});
+  if(n.indexOf('危险废物')>=0&&catv==='报告书') L.push({c:'危险废物利用及处置', ag:'可能省厅审批', win:'按省厅规定渠道', note:'【须核实】新建危废集中处置（焚烧/填埋）、产废单位自建单独危废焚烧/填埋→省厅；单纯收集贮存、内部回收利用→市局', conditional:true});
+  if((n.indexOf('生物安全实验室')>=0||n.indexOf('P3')>=0||n.indexOf('P4')>=0)&&catv==='报告书') L.push({c:'P3/P4生物安全实验室', ag:'福建省生态环境厅', win:'按省厅规定渠道', note:'全部报省厅', conditional:false});
+  if(id===171||id===172||id===173) L.push({c:'核与辐射', ag:'福建省生态环境厅', win:'按省厅规定渠道', note:'伴生放射性矿开发利用；放射性同位素、射线装置（含报告表）全部报省厅', conditional:false});
+  if(id===161&&catv==='报告书') L.push({c:'输变电工程', ag:'可能省厅审批', win:'按省厅规定渠道', note:'【须核实】500kV及以上；涉敏感区330kV及以上→省厅；220kV及以下→市局', conditional:true});
+  return L;
+}
+
+/* ===== 主判定 ===== */
+function judge(){
+  var loc=$('fLoc').value, lev=$('fLev').value, cross=radVal('cross'), sens=radVal('sens');
+  if(!loc) return {err:'请选择建设地点'};
+  if(!lev) return {err:'请选择备案/审批机关层级'};
+  if(!PICKS.length) return {err:'请搜索并添加至少一个行业类别'};
+
+  /* 多行业取最高等级 */
+  var rank={'报告书':3,'报告表':2,'登记表':1};
+  var best=PICKS[0];
+  PICKS.forEach(function(p){ if(rank[p.catv]>rank[best.catv]) best=p; });
+  var it=best.it, catv=best.catv;
+  if(catv==='报告表'&&best.spec!=='是'&&best.spec!=='否') best.spec='否';
+  SPEC=best.spec;
+
+  var R={type:catv, agency:'', win:'', note:'', branch:[], refs:[], hits:[], picks:PICKS};
+  var fulltxt=PICKS.map(function(p){ return p.it.n+' '+(p.it.bs||'')+' '+(p.it.bt||'')+' '+(p.it.dj||''); }).join(' ');
+  var complex=hitR(fulltxt,R2), simple=hitR(fulltxt,R1);
+
+  /* 0 跨行政区域 */
+  if(cross==='跨省'){ R.agency='生态环境部'; R.win='按部规定渠道申报'; R.note='跨省（区、市）行政区域项目由生态环境部审批（闽环发〔2025〕5号）。'; R.refs.push('闽环发〔2025〕5号（一）跨省项目报部'); return R; }
+  if(cross==='跨设区市'){ R.agency='福建省生态环境厅'; R.win='按省厅规定渠道申报'; R.note='跨设区市行政区域项目由省生态环境厅审批。'; R.refs.push('闽环发〔2025〕5号（三）跨设区市项目报省厅'); return R; }
+  if(lev==='国务院'){ R.agency='生态环境部'; R.win='按部规定渠道申报'; R.note='国务院或国务院授权部门审批的报告书项目属部批目录。'; R.refs.push('部目录2019 八、其他'); return R; }
+
+  /* 1 部批：遍历所有行业，只要有一个命中部批即报部批（部级优先于省级、市级） */
+  var meeAll=[];
+  PICKS.forEach(function(p){
+    var m=meeLines(p.it, p.catv);
+    m.forEach(function(x){ x._from=p.it.n; meeAll.push(x); });
+  });
+  if(meeAll.length){
+    R.agency='生态环境部'; R.win='按部规定渠道申报'; R.branch=meeAll;
+    R.note='命中生态环境部审批目录（部级优先），请按对应情形核对。';
+    R.refs.push('生态环境部审批目录（2019年本）');
+    return R;
+  }
+
+  /* 2 省批：遍历所有行业，只要有一个命中省批即报省批（省级优先于市级） */
+  var fjAll=[];
+  PICKS.forEach(function(p){
+    var f=fjLines(p.it, p.catv);
+    f.forEach(function(x){ x._from=p.it.n; fjAll.push(x); });
+  });
+  if(fjAll.length){
+    var hasConditional=fjAll.some(function(x){ return x.conditional; });
+    R.agency=hasConditional?'可能福建省生态环境厅审批（须按规模/工艺核实）':'福建省生态环境厅';
+    R.win=hasConditional?'按省厅规定渠道申报（先核实规模/工艺是否达省批门槛）':'按省厅规定渠道申报（泉州市局不直接受理）';
+    R.branch=fjAll;
+    R.note=hasConditional
+      ? '命中省批目录相关行业，其中部分需按实际规模/工艺条件核实是否达省批门槛（见下方红色标注项）；若不达门槛则由市局审批。'
+      : '命中福建省生态环境厅审批目录（省级优先于市级），请按对应情形核对。';
+    R.refs.push('闽环发〔2025〕5号 省厅审批目录');
+    return R;
+  }
+
+  /* 3 登记表 */
+  if(catv==='登记表'){ R.agency='企业网上备案（无需审批）'; R.win='全国建设项目环评统一申报和审批系统（登记表在线备案）'; R.note='登记表全部网上备案，不分审批层级。'; R.refs.push('《分类管理名录（2021年版）》'); return R; }
+
+  /* 4 台商投资区 */
+  if(loc==='台商投资区'||lev==='台商区'){
+    R.agency='泉州台商投资区（行使设区市级审批权限）'; R.win='泉州台商投资区审批部门窗口';
+    R.note='泉委发〔2014〕12号赋予台商投资区市级经济社会管理权限；区内属市局权限的项目由台商投资区自行审批。'+(catv==='报告书'?' 报告书须经审批委员会集体研究。':'');
+    R.refs.push('泉委发〔2014〕12号；泉环保评〔2023〕18号第三条（一）'); return R;
+  }
+
+  /* 5 泉州开发区 */
+  if(loc==='泉州开发区'||lev==='开发区'){
+    if(catv==='报告表'&&SPEC==='否'){ R.agency='泉州开发区自然资源和规划建设局（委托审批）'; R.win='泉州开发区行政服务窗口'; R.note='开发区备案的一般报告表（不需专项评价）委托开发区自然资源和规划建设局审批。'; R.refs.push('泉环保评〔2023〕18号第三条（二）1'); return R; }
+    if(catv==='报告表'){ R.agency='泉州市生态环境局'; R.win='项目所在地县（市、区）行政服务中心生态环境窗口（A类）'; R.note='开发区内需专项评价的报告表由市局审批（220kV输变电除外）。'; R.refs.push('泉环保评〔2023〕18号第三条（二）2'); return R; }
+    R.agency='泉州市生态环境局'; R.win='按附件1/2规则确定（建议向市局或开发区管委会确认）'; R.note='开发区内报告书由市局审批；18号文未单列开发区报告书窗口类别，请对照附件1/2。'; R.refs.push('泉环保评〔2023〕18号第三条（二）2'); return R;
+  }
+
+  /* 6 报告书 → 窗口 */
+  if(catv==='报告书'){
+    R.agency='泉州市生态环境局';
+    R.refs.push('泉环保评〔2023〕18号第二条 + 附件1/附件2');
+    if(cross==='跨县'){ R.win='泉州市行政服务中心生态环境局窗口（B类）'; R.note='跨县（市、区）报告书由市局审批，报市行政服务中心窗口。'; }
+    else if(lev==='省'){ R.win='泉州市行政服务中心生态环境局窗口（B类）'; R.note='省备案且未列入国家、省目录的报告书由市局审批（B类窗口）。'; }
+    else if(lev==='市'){
+      if(simple.length){ R.win='项目所在地县（市、区）行政服务中心生态环境窗口（A类）'; R.note='市级备案、命中附件1第一条（环境影响一般）：'+simple.join('、')+'，窗口前移至项目所在地县窗口。'; }
+      else { R.win='泉州市行政服务中心生态环境局窗口（B类）'; R.note='市级备案、未命中附件1第一条清单的报告书，报市行政服务中心窗口。'; }
+    } else {
+      if(complex.length){ R.win='泉州市行政服务中心生态环境局窗口（B类）'; R.note='县级备案、命中附件2第三条（环境影响较复杂）：'+complex.join('、')+'，报市行政服务中心窗口。'; }
+      else { R.win='项目所在地县（市、区）行政服务中心生态环境窗口（A类）'; R.note='县级备案、未命中附件2第三条清单的报告书，窗口前移至项目所在地县窗口。'; }
+    }
+    R.note+=' 审批权均在市局；报告书须经市局审批委员会集体研究、领导签批。';
+  } else {
+    /* 7 报告表 */
+    if(SPEC==='是'){
+      R.agency='泉州市生态环境局';
+      if(it.n.indexOf('输变电')>=0){ R.win='泉州市行政服务中心生态环境局窗口（B类）'; R.note='220kV输变电工程（需专项评价）由市局审批，报市行政服务中心窗口。'; }
+      else { R.win='项目所在地县（市、区）行政服务中心生态环境窗口（A类）'; R.note='需专项评价的报告表（220kV输变电除外）由市局审批，受理前移至项目所在地县窗口。'; }
+      R.refs.push('泉环保评〔2023〕18号第二条（一）3、（二）2');
+    } else {
+      R.agency='县（市、区）生态环境局（以市局名义审批）'; R.win='项目所在地县（市、区）行政服务中心生态环境窗口';
+      R.note='无需专项评价的一般报告表，授权县（市、区）生态环境局以市级名义审批。';
+      R.refs.push('泉环保评〔2023〕18号第二条（二）');
+    }
+  }
+  if(sens==='是'){
+    R.note+=' 【注意】涉及环境敏感区时名录条款可能升级环评类别，请按上方名录条件核对；报告表项目一般需开展专项评价。';
+  }
+  return R;
+}
+
+/* ===== 渲染 ===== */
+function showRes(R){
+  if(R.err){ alert(R.err); return; }
+  $('rType').innerHTML=R.type;
+  $('rAgency').innerHTML=R.agency;
+  $('rWin').innerHTML=R.win;
+  $('rNote').innerHTML=R.note;
+  var bh='';
+  if(R.branch.length){
+    bh='<div class="bt">按实际情形选择对应结论（请对照目录原文复核）：</div>';
+    R.branch.forEach(function(b){
+      var from=b._from?'<span style="color:#9ca3af;font-size:11px">（命中行业：'+esc(b._from)+'）</span> ':'';
+      var style=b.conditional?'style="border-left:3px solid #dc2626;padding-left:8px;margin:6px 0"':'';
+      var flag=b.conditional?'<span style="color:#dc2626;font-weight:700">【须进一步核实】</span> ':'';
+      bh+='<div class="brow" '+style+'>'+flag+'<b>'+esc(b.c)+'</b> → '+esc(b.ag)+'｜'+esc(b.win)+(b.note?'<br>（'+esc(b.note)+'）':'')+'<br>'+from+'</div>';
+    });
+  }
+  /* 多行业识别表 */
+  if(R.picks && R.picks.length>1){
+    bh+='<div class="bt" style="margin-top:12px">多行业识别（名录第四条：按单项最高等级）：</div>';
+    var rank={'报告书':3,'报告表':2,'登记表':1};
+    var bestRank=0; R.picks.forEach(function(p){ if(rank[p.catv]>bestRank) bestRank=rank[p.catv]; });
+    R.picks.forEach(function(p){
+      var isBest = rank[p.catv]===bestRank ? ' ★' : '';
+      bh+='<div class="brow">'+esc(p.it.n)+' → <b>'+p.catv+'</b>'+(p.catv==='报告表'?(p.spec==='是'?'（需专项）':'（不需专项）'):'')+isBest+'</div>';
+    });
+  }
+  $('rBranch').innerHTML=bh;
+  var refs=R.refs.map(function(x){return '· '+x;}).join('\n');
+  var hits=[];
+  var ft='';
+  if(PICKS.length){
+    ft=PICKS.map(function(p){ return p.it.n+' '+(p.it.bs||'')+' '+(p.it.bt||'')+' '+(p.it.dj||''); }).join(' ');
+    var c2=hitR(ft,R1), s2=hitR(ft,R1);
+    var c2b=hitR(ft,R2);
+    if(c2b.length) hits.push('命中附件2第三条：'+c2b.join('、'));
+    if(s2.length) hits.push('命中附件1第一条：'+s2.join('、'));
+  }
+  $('rRef').innerHTML='依据：\n'+refs+(hits.length?'\n'+hits.join('；')+'\n（自动匹配，请对照清单原文复核）':'');
+  $('resBox').classList.add('show');
+  setTimeout(function(){ $('resBox').scrollIntoView({behavior:'smooth',block:'nearest'}); },60);
+}
+$('btnGo').addEventListener('click', function(){ showRes(judge()); });
+
+function copyText(t){
+  if(navigator.clipboard&&window.isSecureContext) return navigator.clipboard.writeText(t);
+  return new Promise(function(res,rej){
+    var ta=document.createElement('textarea'); ta.value=t; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); res(); }catch(e){ rej(e); }
+    document.body.removeChild(ta);
+  });
+}
+$('btnCopy').addEventListener('click', function(){
+  var lines=['【泉州环评审批判定结果】','环评类别：'+$('rType').textContent,'审批层级：'+$('rAgency').textContent,'受理窗口：'+$('rWin').textContent,'备注：'+$('rNote').textContent];
+  if($('rBranch').textContent.trim()) lines.push('情形对照：\n'+$('rBranch').textContent.trim());
+  lines.push('依据：'+$('rRef').textContent.replace(/· /g,'').replace(/\n/g,'；'));
+  copyText(lines.join('\n')).then(function(){
+    var o=$('btnCopy').textContent; $('btnCopy').textContent='已复制';
+    setTimeout(function(){ $('btnCopy').textContent=o; },1200);
+  });
+});
+</script>
+
+
+</body></html>

@@ -42,6 +42,17 @@ DEMO_KEY = os.path.join(HERE, "keys_demo", "private_demo.pem")
 DEFAULT_YEARS = 1  # 不指定到期日时的默认有效期（年）
 _PERMANENT_WORDS = {"永久", "none", "never", "0", "permanent"}
 
+# 可签发的软件清单：(显示名, 签名标签)。每个软件用各自的标签（签名域），
+# 因此为某软件签出的 license.key 只能解锁那个软件，彼此独立、不通用。
+# 新增软件时在此登记其标签（须与该软件内置 license_verify.APP_TAG 一致）。
+APPS = [
+    ("HJ169 风险计算器", "HJ169"),
+    ("环境质量判定工作台（EnvQualityWorkbench）", "ENVQ"),
+]
+_TAGS = {name: tag for name, tag in APPS}
+_VALID_TAGS = {tag for _, tag in APPS}
+DEFAULT_APP_TAG = APPS[0][1]
+
 
 def _plus_years(d, years):
     try:
@@ -106,8 +117,9 @@ def _norm_machine(code):
     return str(code).strip().upper()
 
 
-def make_license(machine, name="", expiry=None, key_path=None):
-    """返回 license.key 的文本内容（str）。expiry 为 'YYYY-MM-DD' 或 None/''。"""
+def make_license(machine, name="", expiry=None, key_path=None, app_tag=None):
+    """返回 license.key 的文本内容（str）。expiry 为 'YYYY-MM-DD' 或 None/''。
+    app_tag 指定给哪个软件签发（签名域）；默认为清单首个软件。"""
     key_path = key_path or (DEFAULT_KEY if os.path.exists(DEFAULT_KEY) else DEMO_KEY)
     sk = _load_private(key_path)
     if expiry:
@@ -119,7 +131,7 @@ def make_license(machine, name="", expiry=None, key_path=None):
         "issued": datetime.date.today().isoformat(),
         "expiry": expiry or None,
     }
-    sig = sk.sign(LV._canonical(fields))
+    sig = sk.sign(LV._canonical(fields, app_tag or DEFAULT_APP_TAG))
     fields["sig"] = base64.b64encode(sig).decode("ascii")
     return json.dumps(fields, ensure_ascii=False, indent=2), key_path
 
@@ -127,6 +139,9 @@ def make_license(machine, name="", expiry=None, key_path=None):
 def _cli(argv):
     ap = argparse.ArgumentParser(description="HJ169 授权码生成器（作者端）")
     ap.add_argument("--machine", required=True, help="用户机器码，如 A1B2-C3D4-E5F6-7890")
+    ap.add_argument("--app", default=DEFAULT_APP_TAG,
+                    help="给哪个软件签发（签名标签），可选 %s；默认 %s"
+                         % ("/".join(sorted(_VALID_TAGS)), DEFAULT_APP_TAG))
     ap.add_argument("--name", default="", help="授权给（名称/单位，可选）")
     ap.add_argument("--expiry", default="", help="到期日 YYYY-MM-DD，省略为默认一年")
     ap.add_argument("--permanent", action="store_true", help="签发永久授权（无到期日）")
@@ -135,6 +150,10 @@ def _cli(argv):
     ap.add_argument("--allow-mismatch", action="store_true",
                     help="允许用与内置公钥不配套的私钥签发（仅 CI/演示用，正式签发勿用）")
     a = ap.parse_args(argv)
+    app_tag = _TAGS.get(a.app, a.app)  # 允许传显示名或标签
+    if app_tag not in _VALID_TAGS:
+        print("错误：未知软件标签 %r，可选：%s" % (a.app, "、".join(sorted(_VALID_TAGS))))
+        return 2
     expiry = resolve_expiry(a.expiry, a.permanent)
     kp = a.key or _auto_default_key() or DEMO_KEY
     if not os.path.exists(kp):
@@ -145,11 +164,12 @@ def _cli(argv):
               % _app_fingerprint())
         print("请改用与当前这版程序配套的 author_private.pem（即生成当前程序公钥时产生的那把私钥）。")
         return 2
-    text, used = make_license(a.machine, a.name, expiry, kp)
+    text, used = make_license(a.machine, a.name, expiry, kp, app_tag)
     with open(a.out, "w", encoding="utf-8") as f:
         f.write(text + "\n")
     demo = os.path.abspath(used) == os.path.abspath(DEMO_KEY)
     print("已签发：%s" % a.out)
+    print("  软件  ：%s（标签 %s）" % (next((n for n, t in APPS if t == app_tag), app_tag), app_tag))
     print("  机器码：%s" % _norm_machine(a.machine))
     print("  授权给：%s" % (a.name or "(未填)"))
     print("  到期  ：%s" % (expiry or "永久"))
@@ -177,23 +197,30 @@ def _gui():
         e.grid(row=r, column=1, columnspan=2, sticky="we", pady=4)
         return v
 
-    m_var = row(2, "用户机器码：")
-    n_var = row(3, "授权给（可选）：")
-    x_var = row(4, "到期日(YYYY-MM-DD，空=默认一年，填“永久”=永久)：")
+    # 授权软件选择：不同软件用各自签名域，签出的 license.key 相互独立、不通用
+    ttk.Label(frm, text="授权软件：").grid(row=2, column=0, sticky="e", padx=(0, 8), pady=4)
+    app_var = tk.StringVar(value=APPS[0][0])
+    app_box = ttk.Combobox(frm, textvariable=app_var, state="readonly",
+                           values=[n for n, _ in APPS], width=38)
+    app_box.grid(row=2, column=1, columnspan=2, sticky="we", pady=4)
+
+    m_var = row(3, "用户机器码：")
+    n_var = row(4, "授权给（可选）：")
+    x_var = row(5, "到期日(YYYY-MM-DD，空=默认一年，填“永久”=永久)：")
 
     k_var = tk.StringVar(value=_auto_default_key())
-    ttk.Label(frm, text="私钥文件：").grid(row=5, column=0, sticky="e", padx=(0, 8), pady=4)
-    ttk.Entry(frm, textvariable=k_var, width=32).grid(row=5, column=1, sticky="we", pady=4)
+    ttk.Label(frm, text="私钥文件：").grid(row=6, column=0, sticky="e", padx=(0, 8), pady=4)
+    ttk.Entry(frm, textvariable=k_var, width=32).grid(row=6, column=1, sticky="we", pady=4)
 
     def pick_key():
         p = filedialog.askopenfilename(title="选择私钥 PEM", filetypes=[("PEM", "*.pem"), ("全部", "*.*")])
         if p:
             k_var.set(p)
 
-    ttk.Button(frm, text="浏览…", command=pick_key).grid(row=5, column=2, sticky="w", pady=4)
+    ttk.Button(frm, text="浏览…", command=pick_key).grid(row=6, column=2, sticky="w", pady=4)
 
     status = ttk.Label(frm, text="", wraplength=460, justify="left")
-    status.grid(row=6, column=0, columnspan=3, sticky="w", pady=(2, 6))
+    status.grid(row=7, column=0, columnspan=3, sticky="w", pady=(2, 6))
 
     def refresh_status(*_):
         p = k_var.get().strip()
@@ -228,9 +255,11 @@ def _gui():
                                  "签出来的 license.key 在计算器上会提示“签名无效”。\n\n"
                                  "请改用生成本程序这版公钥时产生的 author_private.pem 再签。" % _app_fingerprint())
             return
+        app_name = app_var.get()
+        app_tag = _TAGS.get(app_name, DEFAULT_APP_TAG)
         try:
             expiry = resolve_expiry(x_var.get().strip())
-            text, used = make_license(m, n_var.get().strip(), expiry, kp)
+            text, used = make_license(m, n_var.get().strip(), expiry, kp, app_tag)
         except Exception as ex:
             messagebox.showerror("签发失败", str(ex))
             return
@@ -240,11 +269,14 @@ def _gui():
             return
         with open(out, "w", encoding="utf-8") as f:
             f.write(text + "\n")
-        messagebox.showinfo("已签发", "已生成：\n%s\n到期：%s\n\n把它发给该用户，放在程序同一目录即可。"
-                            % (out, expiry or "永久"))
+        messagebox.showinfo("已签发",
+                            "已为【%s】生成：\n%s\n到期：%s\n\n"
+                            "把它发给该用户，放在【%s】程序的同一目录即可。\n"
+                            "注意：该授权只对这一个软件有效，其它软件需单独签发。"
+                            % (app_name, out, expiry or "永久", app_name))
 
     ttk.Button(frm, text="签发 license.key", command=do_issue).grid(
-        row=7, column=0, columnspan=3, pady=(10, 0), sticky="we")
+        row=8, column=0, columnspan=3, pady=(10, 0), sticky="we")
     frm.columnconfigure(1, weight=1)
     root.mainloop()
 

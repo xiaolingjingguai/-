@@ -141,12 +141,17 @@ def machine_code():
 
 
 # ====================================================================== 许可证
-def _canonical(fields):
-    """许可证被签名的规范字节：去除 sig 后按键排序、紧凑序列化，并加程序标签。"""
+def _canonical(fields, app_tag=None):
+    """许可证被签名的规范字节：去除 sig 后按键排序、紧凑序列化，并加程序标签。
+
+    app_tag 默认用本程序内置标签（APP_TAG）。授权码生成器为“其它软件”签发时，
+    可传入该软件的标签，使签出的 license.key 只能在那个软件上通过校验（按软件隔离）。"""
+    if app_tag is None:
+        app_tag = APP_TAG
     body = {k: fields[k] for k in fields if k != "sig"}
     payload = json.dumps(body, sort_keys=True, separators=(",", ":"),
                          ensure_ascii=False)
-    return (APP_TAG + "\n" + payload).encode("utf-8")
+    return (app_tag + "\n" + payload).encode("utf-8")
 
 
 def _license_path():

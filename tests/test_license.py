@@ -77,6 +77,14 @@ def run():
     ok, _, reason = verify(json.dumps(d, ensure_ascii=False), code1)
     check("篡改内容拒绝", (not ok) and "签名" in reason)
 
+    # 按软件隔离：给其它软件（标签 ENVQ）签的证，本程序（标签 HJ169）应拒绝；本程序自己的证应通过
+    text_envq, _ = LI.make_license(code1, "", None, DEMO_KEY, app_tag="ENVQ")
+    ok, _, reason = verify(text_envq, code1)
+    check("它软件授权本程序拒绝", (not ok) and "签名" in reason)
+    text_hj, _ = LI.make_license(code1, "", None, DEMO_KEY, app_tag="HJ169")
+    ok, _, _ = verify(text_hj, code1)
+    check("本软件授权本程序通过", ok)
+
     # 试用期：首次约 30 分钟，到期后为 0（用临时 LOCALAPPDATA 隔离，_now 注入时间）
     import time as _t
     import tempfile

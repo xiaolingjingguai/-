@@ -13,8 +13,9 @@
 - 仅做验证，使用纯 Python 实现（_ed25519_pure.py），不引入新的打包依赖。
 - 完全离线：机器码对拷即可，不联网激活。
 - 许可证绑定机器码，可选到期日。
-- 本程序与 HJ169 风险计算器共用同一作者公钥与签名域（APP_TAG），因此作者的同一套授权
-  码生成器、以及为某台机器签发的同一份 license.key，可同时解锁这两个软件。
+- 本程序与作者的其它软件（如 HJ169 风险计算器）共用同一把作者公钥/私钥，但各自使用
+  不同的签名域（APP_TAG），因此为本程序签发的 license.key 只能解锁本程序、不与其它软件通用；
+  作者用同一套“授权码生成器”选择“本软件”即可签发。
 - 门禁弹窗用 PySide6（Qt）实现，与本程序界面一致。
 
 安全边界（务必知晓）：Python/PyInstaller 打包的程序可被逆向，本机制能有效阻止
@@ -38,8 +39,9 @@ import _ed25519_pure as _ed
 PUBLIC_KEY_HEX = "34890c731b85832e8f3e5d106767b7954128e1f7280208c1f0a9c4ad1ab3a16c"
 
 LICENSE_FILENAME = "license.key"
-# 签名域标签。与 HJ169 计算器保持一致，使同一份 license.key 可同时授权两个软件。
-APP_TAG = "HJ169"
+# 签名域标签。本程序专用标签，与 HJ169 等其它软件不同，使本程序的授权与其它软件相互独立、不通用。
+# 作者端的授权码生成器须选择“环境质量判定工作台（ENVQ）”才能签出本程序可用的 license.key。
+APP_TAG = "ENVQ"
 
 
 # ====================================================================== 机器码
@@ -147,12 +149,15 @@ def machine_code():
 
 
 # ====================================================================== 许可证
-def _canonical(fields):
-    """许可证被签名的规范字节：去除 sig 后按键排序、紧凑序列化，并加程序标签。"""
+def _canonical(fields, app_tag=None):
+    """许可证被签名的规范字节：去除 sig 后按键排序、紧凑序列化，并加程序标签。
+    app_tag 默认用本程序内置标签（APP_TAG=ENVQ）。"""
+    if app_tag is None:
+        app_tag = APP_TAG
     body = {k: fields[k] for k in fields if k != "sig"}
     payload = json.dumps(body, sort_keys=True, separators=(",", ":"),
                          ensure_ascii=False)
-    return (APP_TAG + "\n" + payload).encode("utf-8")
+    return (app_tag + "\n" + payload).encode("utf-8")
 
 
 def _license_path():
@@ -375,7 +380,7 @@ def show_gate(reason=None, parent=None):
                  "1. 把上面的机器码发给软件作者；\n"
                  "2. 作者签发与本机绑定的 license.key 授权文件发回给您；\n"
                  "3. 将 license.key 与本程序放在同一目录，重新启动即可使用。\n"
-                 "（提示：该授权与 HJ169 风险计算器通用，同一台机器的 license.key 两个软件都能用。）")
+                 "（本授权仅对本软件有效，与作者的其它软件各自独立。）")
     tip.setStyleSheet("color:#444;")
     tip.setWordWrap(True)
     lay.addWidget(tip)

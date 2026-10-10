@@ -74,4 +74,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $tag = "envq-${{ github.run_number }}"
-          gh release create $tag EnvQualityWorkbench_win64.zip --target ${{ github.sha }} --prerelease --title "环境质量判定工作台 Windows 版（构建 ${{ github.run_number }}）" --notes "由 GitHub Actions 在 windows-latest 上自动构建，已通过许可自测与程序自检。内置机器绑定离线授权（首次可试用 30 分钟），授权与 HJ169 风险计算器通用（同一把作者公钥）。"
+          gh release create $tag EnvQualityWorkbench_win64.zip --target ${{ github.sha }} --prerelease --title "环境质量判定工作台 Windows 版（构建 ${{ github.run_number }}）" --notes "由 GitHub Actions 在 windows-latest 上自动构建，已通过许可自测与程序自检。内置机器绑定离线授权（首次可试用 30 分钟）；本软件授权独立，与作者其它软件不通用（作者端用授权码生成器选择本软件签发）。"
